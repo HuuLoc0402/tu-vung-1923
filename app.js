@@ -6,30 +6,41 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const STORE_KEY = 'tu1923:v1';
-const LEVEL_COUNT = 7;
-const CHUNKS_PER_LEVEL = 5;
+const LESSONS_PER_CHUNK = 5; // mỗi chặng gom khoảng 5 bài (~50 từ) của file gốc
 const SEC_PER_WORD = 7; // ước lượng thời gian một từ trong bài test
-const LEVEL_NAMES = ['Khởi động', 'Nền móng', 'Đời thường', 'Giao tiếp', 'Mở rộng', 'Nâng cao', 'Về đích'];
-const LEVEL_COLORS = [
-  ['#22c1a3', '#1a9e86'], ['#3fa9f5', '#2b7fd4'], ['#5b4fe0', '#7c6ff2'], ['#a855f7', '#8b3fe0'],
-  ['#ec4899', '#d0337f'], ['#f97316', '#e0590a'], ['#e5484d', '#c22f3b'],
+const LEVEL_DESC = [
+  'Từ chức năng và từ cốt lõi nhất (the, have, go, family...)',
+  'Đồ vật, món ăn, thời gian, tính từ và động từ hằng ngày',
+  'Từ hay gặp trong công việc, tin tức, giao tiếp',
+  'Từ đời thường và công việc nâng cao hơn',
 ];
+const LEVEL_COLORS = [['#22c1a3', '#1a9e86'], ['#3fa9f5', '#2b7fd4'], ['#a855f7', '#8b3fe0'], ['#f97316', '#e0590a']];
 
 const W = (i) => ({ i, en: WORDS[i][0], ipa: WORDS[i][1], vi: WORDS[i][2], ex: WORDS[i][3], exVi: WORDS[i][4], src: WORD_SOURCES[WORDS[i][5]] });
 
-/* Chia 1.923 từ thành 7 cấp gần bằng nhau, giữ đúng thứ tự trong file (từ thông dụng nhất đi trước). */
-const LEVELS = Array.from({ length: LEVEL_COUNT }, (_, k) => {
-  const start = Math.round(k * WORDS.length / LEVEL_COUNT);
-  const end = Math.round((k + 1) * WORDS.length / LEVEL_COUNT);
-  const size = end - start;
-  const chunks = Array.from({ length: CHUNKS_PER_LEVEL }, (_, c) => {
-    const s = start + Math.round(c * size / CHUNKS_PER_LEVEL);
-    const e = start + Math.round((c + 1) * size / CHUNKS_PER_LEVEL);
-    return { n: c + 1, start: s, end: e };
+/* Chia cấp và bài đúng như file gốc: 4 cấp (271 / 273 / 720 / 659 từ), 192 bài.
+   Mỗi cấp chia thêm thành các chặng, mỗi chặng gồm trọn vài bài liền nhau. */
+const LEVELS = WORD_SOURCES.map((name, k) => {
+  const idx = [];
+  WORDS.forEach((w, i) => { if (w[5] === k) idx.push(i); });
+  const start = idx[0], end = idx[idx.length - 1] + 1;
+  const lessons = [];
+  for (const i of idx) {
+    const l = WORDS[i][6];
+    if (!lessons.length || lessons[lessons.length - 1].n !== l) lessons.push({ n: l, start: i, end: i + 1 });
+    else lessons[lessons.length - 1].end = i + 1;
+  }
+  const nc = Math.max(1, Math.round(lessons.length / LESSONS_PER_CHUNK));
+  const chunks = Array.from({ length: nc }, (_, c) => {
+    const ls = lessons.slice(Math.round(c * lessons.length / nc), Math.round((c + 1) * lessons.length / nc));
+    return { n: c + 1, start: ls[0].start, end: ls[ls.length - 1].end, lessonFrom: ls[0].n, lessonTo: ls[ls.length - 1].n };
   });
-  return { n: k + 1, name: LEVEL_NAMES[k], color: LEVEL_COLORS[k], start, end, size, chunks };
+  return {
+    n: k + 1, name, desc: LEVEL_DESC[k] || '', color: LEVEL_COLORS[k % LEVEL_COLORS.length], start, end, size: end - start,
+    lessonFrom: lessons[0].n, lessonTo: lessons[lessons.length - 1].n, chunks,
+  };
 });
 const range = (s, e) => Array.from({ length: e - s }, (_, k) => s + k);
 
@@ -42,8 +53,14 @@ function loadStore() {
   let data = null;
   try { data = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { data = null; }
   if (!data || typeof data !== 'object') data = {};
+  const history = Array.isArray(data.history) ? data.history : [];
+  if (data.ver !== 2) {
+    // bản cũ chia 7 cấp: giữ lịch sử và tiến độ từng từ, chỉ bỏ gắn cấp/chặng cũ
+    for (const h of history) { if (h.lv) h.title = (h.title || '') + ' (cách chia cũ)'; h.lv = 0; h.chunk = 0; if (h.kind === 'level' || h.kind === 'chunk') h.kind = 'old'; }
+  }
   return {
-    history: Array.isArray(data.history) ? data.history : [],
+    ver: 2,
+    history,
     stats: data.stats && typeof data.stats === 'object' ? data.stats : {},
     settings: Object.assign({}, DEFAULT_SETTINGS, data.settings || {}),
     days: Array.isArray(data.days) ? data.days : [],
@@ -421,7 +438,7 @@ SCREENS.home = () => {
       </div>
     </div>
     ${notice ? `<div style="margin-top:14px">${notice}</div>` : ''}
-    <div class="section-title">7 cấp độ · 1.923 từ</div>
+    <div class="section-title">4 cấp độ · 1.923 từ · 192 bài</div>
     <div class="level-grid">
       ${LEVELS.map((lv) => {
         const st = levelStats(lv);
@@ -429,7 +446,7 @@ SCREENS.home = () => {
           ${levelBadge(lv)}
           <div class="level-info">
             <div class="level-name">Cấp ${lv.n} · ${lv.name}</div>
-            <div class="level-meta">Từ ${lv.start + 1}-${lv.end} · ${lv.size} từ</div>
+            <div class="level-meta">Bài ${lv.lessonFrom}-${lv.lessonTo} · ${lv.size} từ</div>
             <div class="bar"><i style="width:${pct(st.mastered, lv.size)}%"></i></div>
           </div>
           <div class="level-score"><b>${st.mastered}</b><span>/${lv.size} thuộc</span></div>
@@ -476,7 +493,8 @@ SCREENS.level = (n) => {
         ${levelBadge(lv)}
         <div class="grow">
           <div class="level-name" style="font-size:20px;font-weight:800">${lv.name}</div>
-          <div class="level-meta">Từ số ${lv.start + 1} tới ${lv.end} · ${lv.size} từ</div>
+          <div class="level-meta">${lv.size} từ · bài ${lv.lessonFrom} tới ${lv.lessonTo}</div>
+          <div class="level-meta">${esc(lv.desc)}</div>
         </div>
       </div>
       <div class="bar" style="margin-top:14px"><i style="width:${pct(st.mastered, lv.size)}%"></i></div>
@@ -497,10 +515,10 @@ SCREENS.level = (n) => {
       </button>
     </div>
 
-    <div class="section-title">Hoặc chia nhỏ thành 5 chặng</div>
+    <div class="section-title">Hoặc chia nhỏ thành ${lv.chunks.length} chặng</div>
     <div class="chunk-grid">
       ${lv.chunks.map((c) => `<button class="option" data-chunk="${c.n}">
-        <div class="o-main"><div class="o-title">Chặng ${c.n}</div><div class="o-sub">Từ ${c.start + 1}-${c.end} · ${c.end - c.start} từ</div></div>
+        <div class="o-main"><div class="o-title">Chặng ${c.n}</div><div class="o-sub">Bài ${c.lessonFrom}-${c.lessonTo} · ${c.end - c.start} từ</div></div>
         ${scoreTag(chunkScore(c))}
       </button>`).join('')}
       <button class="option" id="optList">
@@ -519,7 +537,7 @@ SCREENS.level = (n) => {
   $('#optQuick').onclick = () => startTest({ items: shuffle(range(lv.start, lv.end)).slice(0, 20), title: label, sub: '20 từ ngẫu nhiên', lv: lv.n, kind: 'quick', back: ['level', lv.n] });
   app.querySelectorAll('[data-chunk]').forEach((b) => (b.onclick = () => {
     const c = lv.chunks[+b.dataset.chunk - 1];
-    startTest({ items: shuffle(range(c.start, c.end)), title: label, sub: `Chặng ${c.n}`, lv: lv.n, kind: 'chunk', chunk: c.n, back: ['level', lv.n] });
+    startTest({ items: shuffle(range(c.start, c.end)), title: label, sub: `Chặng ${c.n} · bài ${c.lessonFrom}-${c.lessonTo}`, lv: lv.n, kind: 'chunk', chunk: c.n, back: ['level', lv.n] });
   }));
   $('#optList').onclick = () => go('words', lv.n);
 };
@@ -1175,8 +1193,8 @@ SCREENS.help = () => {
     <div class="card help">
       <h3 style="margin-top:0">Cách học</h3>
       <ul>
-        <li>1.923 từ chia thành <b>7 cấp</b>, mỗi cấp 274-275 từ, giữ đúng thứ tự trong danh sách gốc: cấp 1 là những từ thông dụng nhất.</li>
-        <li>Mỗi cấp chia tiếp thành <b>5 chặng</b> (~55 từ) để làm bài ngắn, hoặc làm <b>cả cấp</b> một lượt (~30 phút).</li>
+        <li>1.923 từ chia đúng như file gốc: <b>4 cấp</b> (Nền tảng 271 từ, Đời sống 273, Thông dụng 720, Mở rộng 659), tổng <b>192 bài</b>, mỗi bài khoảng 10 từ.</li>
+        <li>Mỗi cấp chia tiếp thành các <b>chặng</b>, mỗi chặng gồm khoảng 5 bài (~50 từ) để làm bài ngắn, hoặc làm <b>cả cấp</b> một lượt.</li>
         <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh. Quá giờ tính là sai. Máy tự chấm. Không có mic thì gõ từ (${TYPE_SECONDS} giây).</li>
         <li>Sau mỗi từ, máy đọc phát âm chuẩn và cho xem máy đã nghe được gì.</li>
         <li>Hết bài có tổng kết: số từ sai, tỉ lệ đúng, danh sách từ sai để <b>học lại</b> hoặc <b>kiểm tra lại</b>.</li>

@@ -4,17 +4,14 @@ App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa t
 
 ## Cách chia cấp
 
-1.923 từ chia đều thành 7 cấp, giữ đúng thứ tự trong file gốc (từ thông dụng nhất đi trước). Mỗi cấp chia tiếp 5 chặng (~55 từ).
+Chia đúng như file gốc `1923-tu-tieng-anh-thong-dung.xlsx`: 4 cấp, 192 bài (mỗi bài khoảng 10 từ). Mỗi cấp chia thêm thành các chặng, mỗi chặng gồm khoảng 5 bài liền nhau (~50 từ).
 
-| Cấp | Tên | Từ số | Số từ |
-|---|---|---|---|
-| 1 | Khởi động | 1-275 | 275 |
-| 2 | Nền móng | 276-549 | 274 |
-| 3 | Đời thường | 550-824 | 275 |
-| 4 | Giao tiếp | 825-1099 | 275 |
-| 5 | Mở rộng | 1100-1374 | 275 |
-| 6 | Nâng cao | 1375-1648 | 274 |
-| 7 | Về đích | 1649-1923 | 275 |
+| Cấp | Tên | Số từ | Bài | Số chặng |
+|---|---|---|---|---|
+| 1 | Nền tảng | 271 | 1-27 | 5 |
+| 2 | Đời sống | 273 | 28-54 | 5 |
+| 3 | Thông dụng | 720 | 55-126 | 14 |
+| 4 | Mở rộng | 659 | 127-192 | 13 |
 
 ## Các file
 

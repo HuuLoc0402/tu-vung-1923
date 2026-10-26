@@ -181,6 +181,7 @@ button { cursor: pointer; }
 .level-score { text-align: right; flex: none; }
 .level-score b { display: block; font-size: 17px; }
 .level-score span { font-size: 12px; color: var(--muted); }
+.level-card.review { grid-column: 1 / -1; }
 .level-card.review .level-badge { background: linear-gradient(135deg, #ff8a4c, #e5484d); }
 
 .footer-links { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 26px; }
