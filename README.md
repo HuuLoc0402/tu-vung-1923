@@ -4,14 +4,18 @@ App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa t
 
 ## Cách chia cấp
 
-Chia đúng như file gốc `1923-tu-tieng-anh-thong-dung.xlsx`: 4 cấp, 192 bài (mỗi bài khoảng 10 từ). Mỗi cấp chia thêm thành các chặng, mỗi chặng gồm khoảng 5 bài liền nhau (~50 từ).
+Chia đúng như file gốc `raw/2548a81c-1923-tu-tieng-anh-thong-dung_1.xlsx` (sheet "Bản học"): 192 bài, mỗi bài khoảng 10 từ. Trong file, cấp 3 và cấp 4 có 2 phần; mỗi phần là một cấp trong app, nên app có 6 cấp. Mỗi cấp chia thêm thành các chặng, mỗi chặng gồm khoảng 5 bài liền nhau (~50 từ).
 
-| Cấp | Tên | Số từ | Bài | Số chặng |
+| Cấp trong app | Tên | Trong file | Số từ | Bài |
 |---|---|---|---|---|
-| 1 | Nền tảng | 271 | 1-27 | 5 |
-| 2 | Đời sống | 273 | 28-54 | 5 |
-| 3 | Thông dụng | 720 | 55-126 | 14 |
-| 4 | Mở rộng | 659 | 127-192 | 13 |
+| 1 | Nền tảng | Cấp 1 | 271 | 1-27 |
+| 2 | Đời sống | Cấp 2 | 273 | 28-54 |
+| 3 | Thông dụng · Phần 1 | Cấp 3, phần 1 | 360 | 55-90 |
+| 4 | Thông dụng · Phần 2 | Cấp 3, phần 2 | 360 | 91-126 |
+| 5 | Mở rộng · Phần 1 | Cấp 4, phần 1 | 330 | 127-159 |
+| 6 | Mở rộng · Phần 2 | Cấp 4, phần 2 | 329 | 160-192 |
+
+Bài kiểm tra cả cấp giới hạn 25 phút. Thời gian trả lời mỗi từ theo độ dài: tới 5 chữ cái 3 giây, 6-8 chữ cái 4 giây, từ 9 chữ cái trở lên 5 giây (tắt được trong Cài đặt).
 
 ## Các file
 

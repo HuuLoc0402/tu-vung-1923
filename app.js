@@ -6,21 +6,29 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.4.0';
 const STORE_KEY = 'tu1923:v1';
 const LESSONS_PER_CHUNK = 5; // mỗi chặng gom khoảng 5 bài (~50 từ) của file gốc
 const SEC_PER_WORD = 7; // ước lượng thời gian một từ trong bài test
+const LEVEL_TEST_MIN = 25; // bài kiểm tra cả cấp giới hạn 25 phút
+// Mô tả lấy từ sheet "Hướng dẫn" của file gốc; cấp 3 và cấp 4 trong file có 2 phần, mỗi phần là một cấp ở app
 const LEVEL_DESC = [
   'Từ chức năng và từ cốt lõi nhất (the, have, go, family...)',
   'Đồ vật, món ăn, thời gian, tính từ và động từ hằng ngày',
-  'Từ hay gặp trong công việc, tin tức, giao tiếp',
-  'Từ đời thường và công việc nâng cao hơn',
+  'Từ hay gặp trong công việc, tin tức, giao tiếp (phần 1)',
+  'Từ hay gặp trong công việc, tin tức, giao tiếp (phần 2)',
+  'Từ đời thường và công việc nâng cao hơn (phần 1)',
+  'Từ đời thường và công việc nâng cao hơn (phần 2)',
 ];
-const LEVEL_COLORS = [['#22c1a3', '#1a9e86'], ['#3fa9f5', '#2b7fd4'], ['#a855f7', '#8b3fe0'], ['#f97316', '#e0590a']];
+const LEVEL_FILE_REF = ['Cấp 1', 'Cấp 2', 'Cấp 3, phần 1', 'Cấp 3, phần 2', 'Cấp 4, phần 1', 'Cấp 4, phần 2'];
+const LEVEL_COLORS = [
+  ['#22c1a3', '#1a9e86'], ['#3fa9f5', '#2b7fd4'], ['#7c6ff2', '#5b4fe0'],
+  ['#a855f7', '#8b3fe0'], ['#f97316', '#e0590a'], ['#e5484d', '#c22f3b'],
+];
 
 const W = (i) => ({ i, en: WORDS[i][0], ipa: WORDS[i][1], vi: WORDS[i][2], ex: WORDS[i][3], exVi: WORDS[i][4], src: WORD_SOURCES[WORDS[i][5]] });
 
-/* Chia cấp và bài đúng như file gốc: 4 cấp (271 / 273 / 720 / 659 từ), 192 bài.
+/* Chia cấp và bài đúng như file gốc: 6 phần (271 / 273 / 360 / 360 / 330 / 329 từ), 192 bài.
    Mỗi cấp chia thêm thành các chặng, mỗi chặng gồm trọn vài bài liền nhau. */
 const LEVELS = WORD_SOURCES.map((name, k) => {
   const idx = [];
@@ -38,7 +46,7 @@ const LEVELS = WORD_SOURCES.map((name, k) => {
     return { n: c + 1, start: ls[0].start, end: ls[ls.length - 1].end, lessonFrom: ls[0].n, lessonTo: ls[ls.length - 1].n };
   });
   return {
-    n: k + 1, name, desc: LEVEL_DESC[k] || '', color: LEVEL_COLORS[k % LEVEL_COLORS.length], start, end, size: end - start,
+    n: k + 1, name, desc: LEVEL_DESC[k] || '', fileRef: LEVEL_FILE_REF[k] || '', color: LEVEL_COLORS[k % LEVEL_COLORS.length], start, end, size: end - start,
     lessonFrom: lessons[0].n, lessonTo: lessons[lessons.length - 1].n, chunks,
   };
 });
@@ -46,7 +54,7 @@ const range = (s, e) => Array.from({ length: e - s }, (_, k) => s + k);
 
 /* ---------------- lưu trữ ---------------- */
 const DEFAULT_SETTINGS = {
-  seconds: 3, accent: 'en-US', rate: 0.95, readVi: true, hint: true, mode: 'voice', autoNext: true, pushToTalk: true,
+  seconds: 3, accent: 'en-US', rate: 0.95, readVi: true, hint: true, mode: 'voice', autoNext: true, pushToTalk: true, byLength: true,
 };
 const store = loadStore();
 function loadStore() {
@@ -54,12 +62,17 @@ function loadStore() {
   try { data = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { data = null; }
   if (!data || typeof data !== 'object') data = {};
   const history = Array.isArray(data.history) ? data.history : [];
-  if (data.ver !== 2) {
-    // bản cũ chia 7 cấp: giữ lịch sử và tiến độ từng từ, chỉ bỏ gắn cấp/chặng cũ
-    for (const h of history) { if (h.lv) h.title = (h.title || '') + ' (cách chia cũ)'; h.lv = 0; h.chunk = 0; if (h.kind === 'level' || h.kind === 'chunk') h.kind = 'old'; }
+  // bản cũ chia 7 cấp (chưa có ver) hoặc 4 cấp (ver 2): giữ lịch sử và tiến độ từng từ, chỉ bỏ gắn cấp/chặng không còn đúng
+  const keepLevel = (h) => data.ver === 2 && (h.lv === 1 || h.lv === 2);
+  if (data.ver !== 3) {
+    for (const h of history) {
+      if (!h.lv || keepLevel(h)) continue;
+      h.title = (h.title || '') + ' (cách chia cũ)'; h.lv = 0; h.chunk = 0;
+      if (h.kind === 'level' || h.kind === 'chunk') h.kind = 'old';
+    }
   }
   return {
-    ver: 2,
+    ver: 3,
     history,
     stats: data.stats && typeof data.stats === 'object' ? data.stats : {},
     settings: Object.assign({}, DEFAULT_SETTINGS, data.settings || {}),
@@ -99,6 +112,7 @@ const grade = (p) => (p >= 80 ? 'good' : p >= 50 ? 'mid' : 'low');
 const fmtDur = (sec) => { const m = Math.floor(sec / 60), s = sec % 60; return m ? `${m} phút ${s}s` : `${s}s`; };
 const fmtDate = (t) => { const d = new Date(t); return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); };
 const estMin = (n) => Math.max(1, Math.round(n * SEC_PER_WORD / 60));
+const fmtClock = (ms) => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 let toastTimer;
 function toast(msg, ms = 2600) {
   const el = $('#toast'); el.textContent = msg; el.classList.add('show');
@@ -126,6 +140,7 @@ const ICON = {
   next: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   prev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
   keyboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2.5"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>',
   download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>',
 };
 
@@ -408,7 +423,10 @@ function supportNotice() {
   return '';
 }
 const useMic = () => S.mode !== 'type' && !!getSR() && window.isSecureContext && !micBlocked;
-const TYPE_SECONDS = 10;
+/* Thời gian trả lời theo độ dài từ: từ ngắn (tới 5 chữ cái) dùng thời gian gốc, 6-8 chữ thêm 1 giây, từ 9 chữ trở lên thêm 2 giây */
+const answerSeconds = (en) => S.seconds + (S.byLength ? (en.length >= 6 ? 1 : 0) + (en.length >= 9 ? 1 : 0) : 0);
+/* Gõ phím: tối thiểu 8 giây, từ dài được thêm thời gian */
+const typeSeconds = (en) => Math.max(8, Math.round(5 + en.length * 0.7));
 
 /* =========================================================
    Các màn hình
@@ -430,7 +448,7 @@ SCREENS.home = () => {
     </div>
     <div class="hero">
       <h2>${total ? 'Chào bạn, học tiếp nào!' : 'Chào bạn 👋'}</h2>
-      <p>Nhìn nghĩa tiếng Việt, nói từ tiếng Anh trong ${S.seconds} giây. Sai thì nghe lại và ôn ngay.</p>
+      <p>Nhìn nghĩa tiếng Việt, nói từ tiếng Anh trong ${S.seconds}-${S.seconds + (S.byLength ? 2 : 0)} giây. Sai thì nghe lại và ôn ngay.</p>
       <div class="hero-stats">
         <div class="hero-stat"><b>${mastered}</b><span>từ đã thuộc</span></div>
         <div class="hero-stat"><b>${streakDays()}</b><span>ngày liên tiếp</span></div>
@@ -438,15 +456,15 @@ SCREENS.home = () => {
       </div>
     </div>
     ${notice ? `<div style="margin-top:14px">${notice}</div>` : ''}
-    <div class="section-title">4 cấp độ · 1.923 từ · 192 bài</div>
+    <div class="section-title">6 cấp độ · 1.923 từ · 192 bài</div>
     <div class="level-grid">
       ${LEVELS.map((lv) => {
         const st = levelStats(lv);
         return `<button class="level-card" data-level="${lv.n}">
           ${levelBadge(lv)}
           <div class="level-info">
-            <div class="level-name">Cấp ${lv.n} · ${lv.name}</div>
-            <div class="level-meta">Bài ${lv.lessonFrom}-${lv.lessonTo} · ${lv.size} từ</div>
+            <div class="level-name">Cấp ${lv.n} · ${lv.name.split(' · ')[0]}</div>
+            <div class="level-meta">${lv.name.includes(' · ') ? lv.name.split(' · ')[1] + ' · ' : ''}Bài ${lv.lessonFrom}-${lv.lessonTo}</div>
             <div class="bar"><i style="width:${pct(st.mastered, lv.size)}%"></i></div>
           </div>
           <div class="level-score"><b>${st.mastered}</b><span>/${lv.size} thuộc</span></div>
@@ -493,7 +511,7 @@ SCREENS.level = (n) => {
         ${levelBadge(lv)}
         <div class="grow">
           <div class="level-name" style="font-size:20px;font-weight:800">${lv.name}</div>
-          <div class="level-meta">${lv.size} từ · bài ${lv.lessonFrom} tới ${lv.lessonTo}</div>
+          <div class="level-meta">${lv.size} từ · bài ${lv.lessonFrom} tới ${lv.lessonTo} · trong file: ${esc(lv.fileRef)}</div>
           <div class="level-meta">${esc(lv.desc)}</div>
         </div>
       </div>
@@ -506,7 +524,7 @@ SCREENS.level = (n) => {
     <div class="section-title">Kiểm tra</div>
     <div class="option-list">
       <button class="option featured" id="optFull">
-        <div class="o-main"><div class="o-title">Kiểm tra cả cấp</div><div class="o-sub">${lv.size} từ xáo trộn · khoảng ${estMin(lv.size)} phút</div></div>
+        <div class="o-main"><div class="o-title">Kiểm tra cả cấp</div><div class="o-sub">${lv.size} từ xáo trộn · tối đa ${LEVEL_TEST_MIN} phút${estMin(lv.size) > LEVEL_TEST_MIN ? ` (kịp khoảng ${Math.round(LEVEL_TEST_MIN * 60 / SEC_PER_WORD / 10) * 10} từ, còn lại làm tiếp sau)` : ''}</div></div>
         ${scoreTag(st.fullBest)}
       </button>
       <button class="option" id="optQuick">
@@ -553,7 +571,7 @@ function quickToggles() {
       </div>
     </div>
     <div class="toggle-row">
-      <div class="t-main"><div class="t-title">Bấm nút mic để nói</div><div class="t-sub">Bật: mỗi từ bạn bấm nút mic rồi mới đếm ${S.seconds} giây. Tắt: mic tự bật sau khi đọc nghĩa.</div></div>
+      <div class="t-main"><div class="t-title">Bấm nút mic để nói</div><div class="t-sub">Bật: mỗi từ bạn bấm nút mic rồi mới đếm giờ. Tắt: mic tự bật sau khi đọc nghĩa.</div></div>
       <label class="switch"><input type="checkbox" data-set="pushToTalk" ${S.pushToTalk ? 'checked' : ''}><span></span></label>
     </div>
     <div class="toggle-row">
@@ -587,7 +605,9 @@ async function startTest(opts) {
     if (m === 'denied') toast('Bạn chưa cho phép mic. Bài này làm bằng gõ phím.', 4000);
     else if (m === 'nodevice') toast('Không tìm thấy mic. Bài này làm bằng gõ phím.', 4000);
   }
-  T = Object.assign({ pos: 0, results: [], token: 0, paused: false, startedAt: Date.now(), phase: 'idle', cancelTap: null }, opts);
+  const limited = opts.kind === 'level' || opts.kind === 'rest';
+  T = Object.assign({ pos: 0, results: [], token: 0, paused: false, startedAt: Date.now(), phase: 'idle', cancelTap: null,
+    limitMs: limited ? LEVEL_TEST_MIN * 60000 : 0, usedMs: 0, runFrom: null, timeUp: false }, opts);
   go('test');
 }
 
@@ -603,6 +623,7 @@ SCREENS.test = () => {
     <div class="scoreline">
       <span class="chip ok">${ICON.check}<span id="tOk">0</span></span>
       <span class="chip bad">${ICON.cross}<span id="tBad">0</span></span>
+      ${T.limitMs ? `<span class="chip clock" id="tClockChip" title="Thời gian còn lại">${ICON.clock}<span id="tClock">${fmtClock(T.limitMs)}</span></span>` : ''}
     </div>
     <div class="card q-card">
       <div class="q-label">Nghĩa tiếng Việt
@@ -642,9 +663,25 @@ SCREENS.test = () => {
   const onVis = () => { if (document.hidden && !T.paused) pauseTest(); };
   document.addEventListener('keydown', onKey);
   document.addEventListener('visibilitychange', onVis);
-  cleanup = () => { document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onVis); T && (T.token++); };
+  let clockTimer = null;
+  if (T.limitMs) {
+    clockStart();
+    clockTimer = setInterval(() => {
+      if (!T || screen !== 'test') return;
+      const left = clockLeft();
+      $('#tClock').textContent = fmtClock(left);
+      $('#tClockChip').classList.toggle('low', left <= 60000);
+      if (left <= 0 && !T.timeUp) { T.timeUp = true; toast(`Hết ${LEVEL_TEST_MIN} phút!`); finishTest(); }
+    }, 500);
+  }
+  cleanup = () => { clearInterval(clockTimer); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onVis); T && (T.token++); };
   runWord();
 };
+
+/* Đồng hồ cả bài: chỉ chạy khi đang làm, tạm dừng thì dừng */
+function clockLeft() { return T.limitMs - T.usedMs - (T.runFrom != null ? performance.now() - T.runFrom : 0); }
+function clockStart() { if (T.limitMs && T.runFrom == null) T.runFrom = performance.now(); }
+function clockStop() { if (T.runFrom != null) { T.usedMs += performance.now() - T.runFrom; T.runFrom = null; } }
 
 function updateTestHeader() {
   const done = T.results.length;
@@ -693,7 +730,8 @@ async function runWord() {
   $('#tHeard').textContent = '';
   $('#tReveal').classList.add('hidden');
   $('#tActions').innerHTML = '';
-  $('#tSec').textContent = S.seconds + 's';
+  const secs = answerSeconds(w.en);
+  $('#tSec').textContent = secs + 's';
   setRing(1);
   $('#tMic').innerHTML = useMic() ? ICON.mic : ICON.micOff;
   $('#tStatus').textContent = S.readVi ? 'Đang đọc nghĩa...' : 'Chuẩn bị...';
@@ -710,15 +748,15 @@ async function runWord() {
         $('#tMic').onclick = null;
         $('#tRing').classList.remove('tap');
         $('#tStatus').textContent = 'Đang mở mic...';
-        listenFor(w.en, S.seconds * 1000, {
-          onStart: (ms) => { if (!alive()) return; $('#tStatus').textContent = 'Nói từ tiếng Anh!'; $('#tRing').classList.add('live'); animateRing(ms); },
+        listenFor(w.en, secs * 1000, {
+          onStart: (ms) => { if (!alive()) return; $('#tStatus').textContent = `Nói từ tiếng Anh! (${secs} giây)`; $('#tRing').classList.add('live'); animateRing(ms); },
           onSound: () => { if (alive() && !$('#tHeard').textContent) $('#tHeard').innerHTML = '<span class="muted">Đang nghe...</span>'; },
           onHeard: (h) => { if (alive()) $('#tHeard').innerHTML = `Máy nghe: <b>${esc(h)}</b>`; },
         }).then(resolve);
       };
       T.cancelTap = () => resolve({ verdict: null, heard: '', error: 'cancel' });
       if (S.pushToTalk) {
-        $('#tStatus').textContent = 'Bấm nút mic rồi nói';
+        $('#tStatus').textContent = `Bấm nút mic rồi nói (${secs} giây)`;
         $('#tRing').classList.add('tap');
         $('#tMic').onclick = start;
       } else start();
@@ -733,7 +771,7 @@ async function runWord() {
   }
   if (!byVoice) {
     // Không dùng được mic: gõ từ tiếng Anh, máy tự chấm
-    const ms = TYPE_SECONDS * 1000;
+    const ms = typeSeconds(w.en) * 1000;
     $('#tMic').innerHTML = ICON.keyboard;
     $('#tStatus').textContent = 'Gõ từ tiếng Anh rồi bấm Enter';
     $('#tHeard').textContent = '';
@@ -805,7 +843,7 @@ async function runWord() {
 
 function pauseTest() {
   if (!T || T.paused) return;
-  T.paused = true; T.token++; Voice.stop(); stopListening(); if (T.cancelTap) T.cancelTap();
+  T.paused = true; T.token++; Voice.stop(); stopListening(); if (T.cancelTap) T.cancelTap(); clockStop();
   // nếu đã chấm xong từ hiện tại thì khi tiếp tục sẽ sang từ mới
   if (T.results.length > T.pos) T.pos = T.results.length;
   $('#tPause').innerHTML = ICON.play;
@@ -818,13 +856,14 @@ function pauseTest() {
 function resumeTest() {
   if (!T || !T.paused) return;
   T.paused = false;
+  clockStart();
   $('#tPause').innerHTML = ICON.pause;
   runWord();
 }
 
 function finishTest() {
   T.token++;
-  Voice.stop(); stopListening();
+  Voice.stop(); stopListening(); if (T.cancelTap) T.cancelTap(); clockStop();
   const n = T.results.length;
   if (!n) return go(...T.back);
   const c = T.results.filter((r) => r.ok).length;
@@ -833,6 +872,8 @@ function finishTest() {
     lv: T.lv || 0, kind: T.kind, chunk: T.chunk || 0, title: T.title, sub: T.sub,
     n, c, total: T.items.length, typed: T.results.some((r) => r.typed),
     wrong: T.results.filter((r) => !r.ok).map((r) => [r.i, r.heard || '']),
+    timeUp: !!T.timeUp, limitMin: T.limitMs ? LEVEL_TEST_MIN : 0,
+    left: n < T.items.length ? T.items.slice(n) : [],
   };
   store.history.push(rec);
   if (store.history.length > 400) store.history.splice(0, store.history.length - 400);
@@ -870,6 +911,11 @@ SCREENS.summary = (id, back = ['home']) => {
         <div class="stat"><b>${fmtDur(h.dur)}</b><span>Thời gian</span></div>
       </div>
     </div>
+    ${h.left && h.left.length ? `
+      <div class="notice ${h.timeUp ? '' : 'info'}" style="margin-top:14px">${h.timeUp ? ICON.clock : ICON.info}<div>${h.timeUp
+        ? `<b>Hết ${h.limitMin} phút.</b> Bạn làm được ${h.n}/${h.total} từ, còn ${h.left.length} từ chưa kịp làm (không tính vào điểm).`
+        : `Bạn dừng ở ${h.n}/${h.total} từ, còn ${h.left.length} từ chưa làm.`}</div></div>
+      <button class="btn block" id="sRest" style="margin-top:10px">${ICON.next}Làm tiếp ${h.left.length} từ còn lại</button>` : ''}
     ${wrongIdx.length ? `
       <div class="btn-row" style="margin-top:14px">
         <button class="btn secondary" id="sStudy">${ICON.book}Học lại từ sai</button>
@@ -887,6 +933,7 @@ SCREENS.summary = (id, back = ['home']) => {
   bindWordRows(app);
   $('#sHome').onclick = () => go('home');
   $('#sReport').onclick = () => go('report');
+  if ($('#sRest')) $('#sRest').onclick = () => startTest({ items: h.left, title: h.title, sub: 'Phần còn lại', lv: h.lv, kind: 'rest', back: ['summary', id, back] });
   if (wrongIdx.length) {
     $('#sStudy').onclick = () => go('study', wrongIdx, { title: 'Học lại từ sai', back: ['summary', id, back], retest: { title: h.title, lv: h.lv } });
     $('#sRetest').onclick = () => startTest({ items: shuffle(wrongIdx), title: h.title, sub: 'Kiểm tra lại từ sai', lv: h.lv, kind: 'retry', back: ['summary', id, back] });
@@ -1133,8 +1180,12 @@ SCREENS.settings = () => {
     ${topbar('Cài đặt')}
     <div class="card"><div class="toggles">
       <div class="toggle-row">
-        <div class="t-main"><div class="t-title">Thời gian trả lời</div><div class="t-sub">Mặc định 3 giây. Mới học có thể để 5 giây.</div></div>
+        <div class="t-main"><div class="t-title">Thời gian trả lời</div><div class="t-sub">Thời gian cho từ ngắn. Mặc định 3 giây, mới học có thể để 5 giây.</div></div>
         <div class="seg" data-set="seconds">${[3, 5, 8].map((s) => `<button data-v="${s}" class="${S.seconds === s ? 'on' : ''}">${s}s</button>`).join('')}</div>
+      </div>
+      <div class="toggle-row">
+        <div class="t-main"><div class="t-title">Từ dài được thêm giờ</div><div class="t-sub">6-8 chữ cái: +1 giây. Từ 9 chữ cái trở lên: +2 giây.</div></div>
+        <label class="switch"><input type="checkbox" data-set="byLength" ${S.byLength ? 'checked' : ''}><span></span></label>
       </div>
       <div class="toggle-row">
         <div class="t-main"><div class="t-title">Giọng tiếng Anh</div><div class="t-sub">Dùng cho cả phát âm và nhận giọng nói</div></div>
@@ -1193,9 +1244,9 @@ SCREENS.help = () => {
     <div class="card help">
       <h3 style="margin-top:0">Cách học</h3>
       <ul>
-        <li>1.923 từ chia đúng như file gốc: <b>4 cấp</b> (Nền tảng 271 từ, Đời sống 273, Thông dụng 720, Mở rộng 659), tổng <b>192 bài</b>, mỗi bài khoảng 10 từ.</li>
-        <li>Mỗi cấp chia tiếp thành các <b>chặng</b>, mỗi chặng gồm khoảng 5 bài (~50 từ) để làm bài ngắn, hoặc làm <b>cả cấp</b> một lượt.</li>
-        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh. Quá giờ tính là sai. Máy tự chấm. Không có mic thì gõ từ (${TYPE_SECONDS} giây).</li>
+        <li>1.923 từ chia đúng như file gốc: <b>6 cấp</b>. Cấp 1 Nền tảng (271 từ), cấp 2 Đời sống (273), cấp 3-4 là Thông dụng phần 1 và phần 2 (360 + 360), cấp 5-6 là Mở rộng phần 1 và phần 2 (330 + 329). Tổng <b>192 bài</b>, mỗi bài khoảng 10 từ.</li>
+        <li>Mỗi cấp chia tiếp thành các <b>chặng</b>, mỗi chặng gồm khoảng 5 bài (~50 từ) để làm bài ngắn, hoặc làm <b>cả cấp</b> một lượt, giới hạn <b>${LEVEL_TEST_MIN} phút</b> (cấp 1, 2 khoảng 270 từ vừa đủ thời gian). Hết giờ thì bài dừng, từ chưa kịp làm có thể làm tiếp sau.</li>
+        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ dài được thêm 1-2 giây. Quá giờ tính là sai. Máy tự chấm. Không có mic thì gõ từ (8-14 giây tùy độ dài).</li>
         <li>Sau mỗi từ, máy đọc phát âm chuẩn và cho xem máy đã nghe được gì.</li>
         <li>Hết bài có tổng kết: số từ sai, tỉ lệ đúng, danh sách từ sai để <b>học lại</b> hoặc <b>kiểm tra lại</b>.</li>
         <li>Nói đúng một từ <b>2 lần liên tiếp</b> thì từ đó được tính là <b>đã thuộc</b>.</li>
