@@ -6,11 +6,10 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 const STORE_KEY = 'tu1923:v1';
 const LESSONS_PER_CHUNK = 5; // mỗi chặng gom khoảng 5 bài (~50 từ) của file gốc
 const SEC_PER_WORD = 7; // ước lượng thời gian một từ trong bài test
-const LEVEL_TEST_MIN = 25; // bài kiểm tra cả cấp giới hạn 25 phút
 // Mô tả lấy từ sheet "Hướng dẫn" của file gốc; cấp 3 và cấp 4 trong file có 2 phần, mỗi phần là một cấp ở app
 const LEVEL_DESC = [
   'Từ chức năng và từ cốt lõi nhất (the, have, go, family...)',
@@ -54,7 +53,7 @@ const range = (s, e) => Array.from({ length: e - s }, (_, k) => s + k);
 
 /* ---------------- lưu trữ ---------------- */
 const DEFAULT_SETTINGS = {
-  seconds: 3, accent: 'en-US', rate: 0.95, readVi: true, hint: true, mode: 'voice', autoNext: true, pushToTalk: true, byLength: true,
+  seconds: 3, accent: 'en-US', rate: 0.95, readVi: true, hint: true, mode: 'voice', autoNext: true, pushToTalk: true,
 };
 const store = loadStore();
 function loadStore() {
@@ -423,10 +422,14 @@ function supportNotice() {
   return '';
 }
 const useMic = () => S.mode !== 'type' && !!getSR() && window.isSecureContext && !micBlocked;
-/* Thời gian trả lời theo độ dài từ: từ ngắn (tới 5 chữ cái) dùng thời gian gốc, 6-8 chữ thêm 1 giây, từ 9 chữ trở lên thêm 2 giây */
-const answerSeconds = (en) => S.seconds + (S.byLength ? (en.length >= 6 ? 1 : 0) + (en.length >= 9 ? 1 : 0) : 0);
-/* Gõ phím: tối thiểu 8 giây, từ dài được thêm thời gian */
-const typeSeconds = (en) => Math.max(8, Math.round(5 + en.length * 0.7));
+/* Nói: mỗi từ cùng một thời gian (mặc định 3 giây).
+   Gõ phím: theo độ dài từ, 3 giây để nghĩ + 0,5 giây cho mỗi chữ cái (go 4s, family 6s, beautiful 8s, responsibility 10s) */
+const answerSeconds = () => S.seconds;
+const typeSeconds = (en) => Math.ceil(3 + en.length * 0.5);
+/* Thời gian làm bài tối đa của một bài = tổng thời gian trả lời của các từ trong bài
+   (vd 360 từ × 3 giây = 18 phút). Chỉ tính lúc người học trả lời, không tính lúc máy đọc nghĩa, phát âm. */
+const testLimitSec = (items, voice) => items.reduce((a, i) => a + (voice ? answerSeconds(WORDS[i][0]) : typeSeconds(WORDS[i][0])), 0);
+const fmtLimit = (sec) => (sec < 60 ? `${sec} giây` : `${Math.floor(sec / 60)} phút${sec % 60 ? ` ${sec % 60} giây` : ''}`);
 
 /* =========================================================
    Các màn hình
@@ -448,7 +451,7 @@ SCREENS.home = () => {
     </div>
     <div class="hero">
       <h2>${total ? 'Chào bạn, học tiếp nào!' : 'Chào bạn 👋'}</h2>
-      <p>Nhìn nghĩa tiếng Việt, nói từ tiếng Anh trong ${S.seconds}-${S.seconds + (S.byLength ? 2 : 0)} giây. Sai thì nghe lại và ôn ngay.</p>
+      <p>Nhìn nghĩa tiếng Việt, nói từ tiếng Anh trong ${S.seconds} giây. Sai thì nghe lại và ôn ngay.</p>
       <div class="hero-stats">
         <div class="hero-stat"><b>${mastered}</b><span>từ đã thuộc</span></div>
         <div class="hero-stat"><b>${streakDays()}</b><span>ngày liên tiếp</span></div>
@@ -524,7 +527,7 @@ SCREENS.level = (n) => {
     <div class="section-title">Kiểm tra</div>
     <div class="option-list">
       <button class="option featured" id="optFull">
-        <div class="o-main"><div class="o-title">Kiểm tra cả cấp</div><div class="o-sub">${lv.size} từ xáo trộn · tối đa ${LEVEL_TEST_MIN} phút${estMin(lv.size) > LEVEL_TEST_MIN ? ` (kịp khoảng ${Math.round(LEVEL_TEST_MIN * 60 / SEC_PER_WORD / 10) * 10} từ, còn lại làm tiếp sau)` : ''}</div></div>
+        <div class="o-main"><div class="o-title">Kiểm tra cả cấp</div><div class="o-sub">Làm bài tối đa <b>${fmtLimit(testLimitSec(range(lv.start, lv.end), useMic()))}</b> (${useMic() ? `${lv.size} từ × ${S.seconds} giây` : 'gõ phím, theo độ dài từ'})<br>Tính cả lúc máy đọc, cả bài khoảng ${estMin(lv.size)} phút</div></div>
         ${scoreTag(st.fullBest)}
       </button>
       <button class="option" id="optQuick">
@@ -607,7 +610,7 @@ async function startTest(opts) {
   }
   const limited = opts.kind === 'level' || opts.kind === 'rest';
   T = Object.assign({ pos: 0, results: [], token: 0, paused: false, startedAt: Date.now(), phase: 'idle', cancelTap: null,
-    limitMs: limited ? LEVEL_TEST_MIN * 60000 : 0, usedMs: 0, runFrom: null, timeUp: false }, opts);
+    limitMs: limited ? testLimitSec(opts.items, useMic()) * 1000 : 0, usedMs: 0, runFrom: null, timeUp: false }, opts);
   go('test');
 }
 
@@ -623,7 +626,7 @@ SCREENS.test = () => {
     <div class="scoreline">
       <span class="chip ok">${ICON.check}<span id="tOk">0</span></span>
       <span class="chip bad">${ICON.cross}<span id="tBad">0</span></span>
-      ${T.limitMs ? `<span class="chip clock" id="tClockChip" title="Thời gian còn lại">${ICON.clock}<span id="tClock">${fmtClock(T.limitMs)}</span></span>` : ''}
+      ${T.limitMs ? `<span class="chip clock" id="tClockChip" title="Thời gian làm bài còn lại (chỉ tính lúc bạn trả lời)">${ICON.clock}<span id="tClock">${fmtClock(T.limitMs)}</span></span>` : ''}
     </div>
     <div class="card q-card">
       <div class="q-label">Nghĩa tiếng Việt
@@ -665,20 +668,19 @@ SCREENS.test = () => {
   document.addEventListener('visibilitychange', onVis);
   let clockTimer = null;
   if (T.limitMs) {
-    clockStart();
     clockTimer = setInterval(() => {
       if (!T || screen !== 'test') return;
       const left = clockLeft();
       $('#tClock').textContent = fmtClock(left);
       $('#tClockChip').classList.toggle('low', left <= 60000);
-      if (left <= 0 && !T.timeUp) { T.timeUp = true; toast(`Hết ${LEVEL_TEST_MIN} phút!`); finishTest(); }
+      if (left <= 0 && !T.timeUp) { T.timeUp = true; toast('Hết thời gian làm bài!'); finishTest(); }
     }, 500);
   }
   cleanup = () => { clearInterval(clockTimer); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onVis); T && (T.token++); };
   runWord();
 };
 
-/* Đồng hồ cả bài: chỉ chạy khi đang làm, tạm dừng thì dừng */
+/* Đồng hồ thời gian làm bài: chỉ chạy lúc người học trả lời (chờ bấm mic, đang nói, đang gõ), tạm dừng thì dừng */
 function clockLeft() { return T.limitMs - T.usedMs - (T.runFrom != null ? performance.now() - T.runFrom : 0); }
 function clockStart() { if (T.limitMs && T.runFrom == null) T.runFrom = performance.now(); }
 function clockStop() { if (T.runFrom != null) { T.usedMs += performance.now() - T.runFrom; T.runFrom = null; } }
@@ -744,18 +746,25 @@ async function runWord() {
   if (byVoice) {
     // Chế độ "bấm để nói": chờ người học bấm nút mic (cần trên iPhone/iPad, máy chặn mic tự bật)
     const res = await new Promise((resolve) => {
+      let windowEnd = null;
       const start = () => {
+        clockStop(); // lúc máy mở mic không tính
         $('#tMic').onclick = null;
         $('#tRing').classList.remove('tap');
         $('#tStatus').textContent = 'Đang mở mic...';
         listenFor(w.en, secs * 1000, {
-          onStart: (ms) => { if (!alive()) return; $('#tStatus').textContent = `Nói từ tiếng Anh! (${secs} giây)`; $('#tRing').classList.add('live'); animateRing(ms); },
+          onStart: (ms) => {
+            if (!alive()) return;
+            clockStart(); clearTimeout(windowEnd); windowEnd = setTimeout(clockStop, ms);
+            $('#tStatus').textContent = `Nói từ tiếng Anh! (${secs} giây)`; $('#tRing').classList.add('live'); animateRing(ms);
+          },
           onSound: () => { if (alive() && !$('#tHeard').textContent) $('#tHeard').innerHTML = '<span class="muted">Đang nghe...</span>'; },
           onHeard: (h) => { if (alive()) $('#tHeard').innerHTML = `Máy nghe: <b>${esc(h)}</b>`; },
-        }).then(resolve);
+        }).then((r) => { clearTimeout(windowEnd); clockStop(); resolve(r); });
       };
-      T.cancelTap = () => resolve({ verdict: null, heard: '', error: 'cancel' });
+      T.cancelTap = () => { clearTimeout(windowEnd); clockStop(); resolve({ verdict: null, heard: '', error: 'cancel' }); };
       if (S.pushToTalk) {
+        clockStart(); // thời gian chờ bấm mic là thời gian nghĩ, có tính
         $('#tStatus').textContent = `Bấm nút mic rồi nói (${secs} giây)`;
         $('#tRing').classList.add('tap');
         $('#tMic').onclick = start;
@@ -765,7 +774,11 @@ async function runWord() {
     if (!alive()) return;
     if (res.error && !['no-start', 'no-speech', 'aborted', 'cancel'].includes(res.error)) {
       toast('Mic lỗi: ' + micErrorText(res.error) + (micBlocked ? '. Chuyển sang gõ phím.' : ''), 4000);
-      if (micBlocked || res.error === 'unsupported') byVoice = false;
+      if (micBlocked || res.error === 'unsupported') {
+        byVoice = false;
+        // chuyển sang gõ phím giữa bài: cộng thêm phần thời gian gõ còn thiếu cho các từ còn lại
+        if (T.limitMs) T.limitMs += (testLimitSec(T.items.slice(T.pos), false) - testLimitSec(T.items.slice(T.pos), true)) * 1000;
+      }
     }
     if (byVoice) { verdict = res.verdict; heard = res.heard; }
   }
@@ -780,11 +793,14 @@ async function runWord() {
     try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); }
     $('#tRing').classList.add('live');
     animateRing(ms);
+    $('#tStatus').textContent = `Gõ từ tiếng Anh rồi bấm Enter (${Math.round(ms / 1000)} giây)`;
+    clockStart();
     const typed = await new Promise((resolve) => {
       const t = setTimeout(() => resolve(inp.value), ms);
       box.onsubmit = (e) => { e.preventDefault(); clearTimeout(t); resolve(inp.value); };
       T.cancelTap = () => { clearTimeout(t); resolve(null); };
     });
+    clockStop();
     T.cancelTap = null;
     inp.disabled = true; box.onsubmit = (e) => e.preventDefault();
     if (!alive()) return;
@@ -856,7 +872,6 @@ function pauseTest() {
 function resumeTest() {
   if (!T || !T.paused) return;
   T.paused = false;
-  clockStart();
   $('#tPause').innerHTML = ICON.pause;
   runWord();
 }
@@ -872,7 +887,7 @@ function finishTest() {
     lv: T.lv || 0, kind: T.kind, chunk: T.chunk || 0, title: T.title, sub: T.sub,
     n, c, total: T.items.length, typed: T.results.some((r) => r.typed),
     wrong: T.results.filter((r) => !r.ok).map((r) => [r.i, r.heard || '']),
-    timeUp: !!T.timeUp, limitMin: T.limitMs ? LEVEL_TEST_MIN : 0,
+    timeUp: !!T.timeUp, limitSec: T.limitMs ? Math.round(T.limitMs / 1000) : 0, used: T.limitMs ? Math.round(T.usedMs / 1000) : null,
     left: n < T.items.length ? T.items.slice(n) : [],
   };
   store.history.push(rec);
@@ -905,15 +920,16 @@ SCREENS.summary = (id, back = ['home']) => {
       <h2 class="sum-title">${msg}</h2>
       <div class="muted small">${esc(h.title)} · ${esc(h.sub)}${h.n < h.total ? ` · dừng ở ${h.n}/${h.total}` : ''}${h.typed ? ' · có gõ phím' : ''}</div>
       ${diff != null ? `<div class="small" style="margin-top:6px;font-weight:700;color:${diff >= 0 ? 'var(--ok)' : 'var(--bad)'}">${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff)}% so với lần trước (${pct(prev.c, prev.n)}%)</div>` : ''}
+      ${h.used != null ? `<div class="small muted" style="margin-top:4px">Cả bài mất ${fmtDur(h.dur)}, tính cả lúc máy đọc nghĩa và phát âm</div>` : ''}
       <div class="stat-grid">
         <div class="stat ok"><b>${h.c}</b><span>Đúng · ${p}%</span></div>
         <div class="stat bad"><b>${h.n - h.c}</b><span>Sai · ${100 - p}%</span></div>
-        <div class="stat"><b>${fmtDur(h.dur)}</b><span>Thời gian</span></div>
+        <div class="stat"><b>${fmtDur(h.used != null ? h.used : h.dur)}</b><span>${h.used != null ? `Làm bài / tối đa ${fmtLimit(h.limitSec)}` : 'Thời gian'}</span></div>
       </div>
     </div>
     ${h.left && h.left.length ? `
       <div class="notice ${h.timeUp ? '' : 'info'}" style="margin-top:14px">${h.timeUp ? ICON.clock : ICON.info}<div>${h.timeUp
-        ? `<b>Hết ${h.limitMin} phút.</b> Bạn làm được ${h.n}/${h.total} từ, còn ${h.left.length} từ chưa kịp làm (không tính vào điểm).`
+        ? `<b>Hết thời gian làm bài (${h.limitSec ? fmtLimit(h.limitSec) : ''}).</b> Bạn làm được ${h.n}/${h.total} từ, còn ${h.left.length} từ chưa kịp làm (không tính vào điểm).`
         : `Bạn dừng ở ${h.n}/${h.total} từ, còn ${h.left.length} từ chưa làm.`}</div></div>
       <button class="btn block" id="sRest" style="margin-top:10px">${ICON.next}Làm tiếp ${h.left.length} từ còn lại</button>` : ''}
     ${wrongIdx.length ? `
@@ -1180,12 +1196,8 @@ SCREENS.settings = () => {
     ${topbar('Cài đặt')}
     <div class="card"><div class="toggles">
       <div class="toggle-row">
-        <div class="t-main"><div class="t-title">Thời gian trả lời</div><div class="t-sub">Thời gian cho từ ngắn. Mặc định 3 giây, mới học có thể để 5 giây.</div></div>
+        <div class="t-main"><div class="t-title">Thời gian nói mỗi từ</div><div class="t-sub">Mặc định 3 giây cho mọi từ. Gõ phím thì tự tính theo độ dài từ.</div></div>
         <div class="seg" data-set="seconds">${[3, 5, 8].map((s) => `<button data-v="${s}" class="${S.seconds === s ? 'on' : ''}">${s}s</button>`).join('')}</div>
-      </div>
-      <div class="toggle-row">
-        <div class="t-main"><div class="t-title">Từ dài được thêm giờ</div><div class="t-sub">6-8 chữ cái: +1 giây. Từ 9 chữ cái trở lên: +2 giây.</div></div>
-        <label class="switch"><input type="checkbox" data-set="byLength" ${S.byLength ? 'checked' : ''}><span></span></label>
       </div>
       <div class="toggle-row">
         <div class="t-main"><div class="t-title">Giọng tiếng Anh</div><div class="t-sub">Dùng cho cả phát âm và nhận giọng nói</div></div>
@@ -1245,8 +1257,8 @@ SCREENS.help = () => {
       <h3 style="margin-top:0">Cách học</h3>
       <ul>
         <li>1.923 từ chia đúng như file gốc: <b>6 cấp</b>. Cấp 1 Nền tảng (271 từ), cấp 2 Đời sống (273), cấp 3-4 là Thông dụng phần 1 và phần 2 (360 + 360), cấp 5-6 là Mở rộng phần 1 và phần 2 (330 + 329). Tổng <b>192 bài</b>, mỗi bài khoảng 10 từ.</li>
-        <li>Mỗi cấp chia tiếp thành các <b>chặng</b>, mỗi chặng gồm khoảng 5 bài (~50 từ) để làm bài ngắn, hoặc làm <b>cả cấp</b> một lượt, giới hạn <b>${LEVEL_TEST_MIN} phút</b> (cấp 1, 2 khoảng 270 từ vừa đủ thời gian). Hết giờ thì bài dừng, từ chưa kịp làm có thể làm tiếp sau.</li>
-        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ dài được thêm 1-2 giây. Quá giờ tính là sai. Máy tự chấm. Không có mic thì gõ từ (8-14 giây tùy độ dài).</li>
+        <li>Mỗi cấp chia tiếp thành các <b>chặng</b>, mỗi chặng gồm khoảng 5 bài (~50 từ) để làm bài ngắn, hoặc làm <b>cả cấp</b> một lượt. Thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 360 từ = 18 phút, 271 từ = 13 phút 33 giây). Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì bài dừng, từ chưa kịp làm có thể làm tiếp sau.</li>
+        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ nào cũng vậy. Quá giờ tính là sai. Máy tự chấm. Không có mic thì gõ từ, thời gian theo độ dài: 3 giây + 0,5 giây mỗi chữ cái (go 4 giây, family 6 giây, beautiful 8 giây).</li>
         <li>Sau mỗi từ, máy đọc phát âm chuẩn và cho xem máy đã nghe được gì.</li>
         <li>Hết bài có tổng kết: số từ sai, tỉ lệ đúng, danh sách từ sai để <b>học lại</b> hoặc <b>kiểm tra lại</b>.</li>
         <li>Nói đúng một từ <b>2 lần liên tiếp</b> thì từ đó được tính là <b>đã thuộc</b>.</li>

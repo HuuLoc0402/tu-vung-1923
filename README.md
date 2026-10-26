@@ -15,7 +15,9 @@ Chia đúng như file gốc `raw/2548a81c-1923-tu-tieng-anh-thong-dung_1.xlsx` (
 | 5 | Mở rộng · Phần 1 | Cấp 4, phần 1 | 330 | 127-159 |
 | 6 | Mở rộng · Phần 2 | Cấp 4, phần 2 | 329 | 160-192 |
 
-Bài kiểm tra cả cấp giới hạn 25 phút. Thời gian trả lời mỗi từ theo độ dài: tới 5 chữ cái 3 giây, 6-8 chữ cái 4 giây, từ 9 chữ cái trở lên 5 giây (tắt được trong Cài đặt).
+Thời gian trả lời: nói thì mỗi từ 3 giây; gõ phím thì theo độ dài từ, 3 giây + 0,5 giây mỗi chữ cái (go 4 giây, family 6 giây, beautiful 8 giây).
+
+Thời gian làm bài tối đa của bài cả cấp = số từ × 3 giây (cấp 1: 13 phút 33 giây, cấp 2: 13 phút 39 giây, cấp 3 và 4: 18 phút, cấp 5: 16 phút 30 giây, cấp 6: 16 phút 27 giây). Đồng hồ chỉ chạy lúc người học trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm, nên cả bài thực tế lâu hơn con số này.
 
 ## Các file
 
