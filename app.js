@@ -6,7 +6,7 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.0.2';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -59,8 +59,8 @@ for (const g of LEVEL_GROUPS) {
 }
 
 /* ---------------- lưu trữ ----------------
-   runs[cấp]: lượt thi đang dở của cấp đó (báo cáo lần 1, các lần thi lại, từ còn sai, bài đang làm dở).
-   reports: báo cáo tổng hợp, mỗi lần hoàn thành một cấp là một dòng. Giữ lại kể cả khi lượt thi của cấp đã xóa. */
+   runs[cấp]: lượt kiểm tra đang dở của cấp đó (báo cáo lần 1, các lần kiểm tra lại, từ còn sai, bài đang làm dở).
+   reports: báo cáo tổng hợp, mỗi lần hoàn thành một cấp là một dòng. Giữ lại kể cả khi lượt kiểm tra của cấp đã xóa. */
 const DEFAULT_SETTINGS = {
   seconds: 3, accent: 'en-US', rate: 0.95, readVi: true, hint: true, mode: 'voice', autoNext: true, pushToTalk: true,
 };
@@ -412,7 +412,7 @@ const fmtLimit = (sec) => (sec < 60 ? `${sec} giây` : `${Math.floor(sec / 60)} 
    ========================================================= */
 const SCREENS = {};
 
-/* ---------- Trang chủ: bấm vào cấp là vào thi luôn ---------- */
+/* ---------- Trang chủ: bấm vào cấp là vào kiểm tra luôn ---------- */
 SCREENS.home = () => {
   const doneLv = new Set(store.reports.map((r) => r.lv)).size;
   const started = store.reports.length || Object.keys(store.runs).length;
@@ -425,8 +425,8 @@ SCREENS.home = () => {
       <button class="icon-btn" id="btnSettings" aria-label="Cài đặt" title="Cài đặt">${ICON.gear}</button>
     </div>
     <div class="hero">
-      <h2>${started ? 'Chào bạn, thi tiếp nào!' : 'Chào bạn 👋'}</h2>
-      <p>Bấm vào một cấp là vào thi luôn. Nhìn nghĩa tiếng Việt, nói từ tiếng Anh trong ${S.seconds} giây. Từ nào sai thì thi lại tới khi hết sai.</p>
+      <h2>${started ? 'Chào bạn, kiểm tra tiếp nào!' : 'Chào bạn 👋'}</h2>
+      <p>Bấm vào một cấp là vào kiểm tra luôn. Nhìn nghĩa tiếng Việt, nói từ tiếng Anh trong ${S.seconds} giây. Từ nào sai thì kiểm tra lại tới khi hết sai.</p>
       <div class="hero-stats">
         <div class="hero-stat"><b>${doneLv}/${LEVELS.length}</b><span>cấp đã hoàn thành</span></div>
         <div class="hero-stat"><b>${store.reports.length}</b><span>lần hoàn thành</span></div>
@@ -463,12 +463,12 @@ SCREENS.home = () => {
 };
 function levelStatus(lv, run) {
   const times = store.reports.filter((r) => r.lv === lv.n).length;
-  if (!run) return { text: times ? `Đã hoàn thành ${times} lần. Bấm để thi lượt mới` : 'Chưa thi. Bấm để thi', big: times, small: 'lần xong' };
+  if (!run) return { text: times ? `Đã hoàn thành ${times} lần. Bấm để kiểm tra lượt mới` : 'Chưa kiểm tra. Bấm để kiểm tra', big: times, small: 'lần xong' };
   const L = run.live;
-  if (!run.first) return { text: 'Đang thi lần 1 dở, bấm để thi tiếp', big: `${L ? L.results.length : 0}/${lv.size}`, small: 'đã làm' };
+  if (!run.first) return { text: 'Đang kiểm tra lần 1 dở, bấm để kiểm tra tiếp', big: `${L ? L.results.length : 0}/${lv.size}`, small: 'đã làm' };
   const k = run.rounds.length;
   return {
-    text: L ? `Đang thi lại lần ${L.round} dở, bấm để thi tiếp` : `Lần 1 đạt ${pct(run.first.c, run.first.n)}% · ${k ? `đã thi lại ${k} lần` : 'chưa thi lại'}`,
+    text: L ? `Đang kiểm tra lại lần ${L.round} dở, bấm để kiểm tra tiếp` : `Lần 1 đạt ${pct(run.first.c, run.first.n)}% · ${k ? `đã kiểm tra lại ${k} lần` : 'chưa kiểm tra lại'}`,
     big: run.pending.length, small: 'từ còn sai',
   };
 }
@@ -510,15 +510,15 @@ function bindQuickToggles(root) {
 }
 
 /* ---------- Màn làm bài ----------
-   Một lượt thi của cấp: lần 1 thi đủ cả cấp, các lần thi lại chỉ có những từ còn sai.
-   Bài đang làm được lưu sau mỗi từ, tắt app mở lại vẫn thi tiếp đúng chỗ đang dở. */
+   Một lượt kiểm tra của cấp: lần 1 kiểm tra đủ cả cấp, các lần kiểm tra lại chỉ có những từ còn sai.
+   Bài đang làm được lưu sau mỗi từ, tắt app mở lại vẫn kiểm tra tiếp đúng chỗ đang dở. */
 let T = null;
 async function startRound(n) {
   const lv = LEVELS[n - 1];
   const run = store.runs[n] || (store.runs[n] = { started: Date.now(), first: null, rounds: [], pending: [], wrong: [], live: null });
   if (!run.live) {
     const items = shuffle(run.first ? run.pending : lv.items);
-    if (!items.length) return toast('Không có từ nào để thi.');
+    if (!items.length) return toast('Không có từ nào để kiểm tra.');
     run.live = { kind: run.first ? 'retake' : 'first', round: run.first ? run.rounds.length + 1 : 0, items, results: [], usedMs: 0, limitMs: 0, startedAt: Date.now() };
   }
   if (useMic()) {
@@ -535,7 +535,7 @@ async function startRound(n) {
     results: L.results.map(([i, ok, heard]) => ({ i, ok: !!ok, heard })),
     token: 0, paused: false, startedAt: L.startedAt, phase: 'idle', cancelTap: null,
     limitMs: L.limitMs, usedMs: L.usedMs, runFrom: null, timeUp: false,
-    title: `Cấp ${lv.n} · ${lv.name}`, sub: L.kind === 'first' ? 'Lần 1 · cả cấp' : `Thi lại lần ${L.round}`,
+    title: `Cấp ${lv.n} · ${lv.name}`, sub: L.kind === 'first' ? 'Lần 1 · cả cấp' : `Kiểm tra lại lần ${L.round}`,
   };
   go('test');
 }
@@ -586,7 +586,7 @@ SCREENS.test = () => {
   </div>`;
   $('#tQuit').onclick = () => {
     pauseTest();
-    if (confirm('Dừng bài ở đây? Lần sau bấm vào cấp này sẽ thi tiếp từ chỗ đang dở.')) { saveLive(); T = null; go('home'); }
+    if (confirm('Dừng bài ở đây? Lần sau bấm vào cấp này sẽ kiểm tra tiếp từ chỗ đang dở.')) { saveLive(); T = null; go('home'); }
     else resumeTest();
   };
   $('#tPause').onclick = () => (T.paused ? resumeTest() : pauseTest());
@@ -814,7 +814,7 @@ function finishTest() {
   T.token++;
   Voice.stop(); stopListening(); if (T.cancelTap) T.cancelTap(); clockStop();
   const run = T.run, lv = LEVELS[T.lv - 1];
-  // hết giờ: các từ chưa kịp làm tính là sai và vào lần thi lại
+  // hết giờ: các từ chưa kịp làm tính là sai và vào lần kiểm tra lại
   const answered = new Set(T.results.map((r) => r.i));
   const left = T.items.filter((i) => !answered.has(i));
   const wrong = T.results.filter((r) => !r.ok).map((r) => [r.i, r.heard || '', 0]).concat(left.map((i) => [i, '', 1]));
@@ -826,7 +826,7 @@ function finishTest() {
   if (store.days.length > 400) store.days.splice(0, store.days.length - 400);
   T = null;
   if (!wrong.length) {
-    // hết từ sai: hoàn thành cấp, ghi vào báo cáo tổng hợp, xóa từ sai và bài thi của cấp
+    // hết từ sai: hoàn thành cấp, ghi vào báo cáo tổng hợp, xóa từ sai và bài kiểm tra của cấp
     const rep = { id: Date.now(), t: Date.now(), started: run.started, lv: lv.n, name: lv.name, first: { c: run.first.c, n: run.first.n }, retakes: run.rounds.length };
     store.reports.push(rep);
     delete store.runs[lv.n];
@@ -850,7 +850,7 @@ const firstStats = (c, n) => `<div class="stat-grid">
     <div class="stat"><b>${pct(c, n)}%</b><span>Đạt</span></div>
   </div>`;
 
-/* ---------- Kết quả của lượt thi đang dở: báo cáo lần 1, các lần thi lại, nút thi lại ---------- */
+/* ---------- Kết quả của lượt kiểm tra đang dở: báo cáo lần 1, các lần kiểm tra lại, nút kiểm tra lại ---------- */
 SCREENS.result = (n) => {
   const lv = LEVELS[n - 1]; const run = store.runs[n];
   if (!run) return go('home');
@@ -860,12 +860,12 @@ SCREENS.result = (n) => {
   let action;
   if (L) {
     const done = L.results.length, total = L.items.length;
-    action = `<div class="notice info" style="margin-top:14px">${ICON.info}<div>Bạn đang thi dở <b>${L.kind === 'first' ? 'lần 1' : `thi lại lần ${L.round}`}</b>: đã làm ${done}/${total} từ.</div></div>
-      <button class="btn block" id="rGo" style="margin-top:10px">${ICON.next}Thi tiếp (còn ${total - done} từ)</button>`;
+    action = `<div class="notice info" style="margin-top:14px">${ICON.info}<div>Bạn đang kiểm tra dở <b>${L.kind === 'first' ? 'lần 1' : `kiểm tra lại lần ${L.round}`}</b>: đã làm ${done}/${total} từ.</div></div>
+      <button class="btn block" id="rGo" style="margin-top:10px">${ICON.next}Kiểm tra tiếp (còn ${total - done} từ)</button>`;
   } else {
-    action = `${last ? `<div class="notice ${last.c === last.n ? 'info' : ''}" style="margin-top:14px">${ICON.redo}<div><b>Thi lại lần ${run.rounds.length}:</b> đúng ${last.c}/${last.n}, còn ${last.n - last.c} từ sai${last.left ? ` (có ${last.left} từ hết giờ chưa kịp làm)` : ''}.</div></div>` : ''}
-      <button class="btn block" id="rGo" style="margin-top:12px">${ICON.redo}Thi lại ${run.pending.length} từ sai</button>
-      <div class="small muted center" style="margin-top:6px">Thi lại lần ${nextRound} · làm bài tối đa ${fmtLimit(testLimitSec(run.pending, useMic()))}</div>`;
+    action = `${last ? `<div class="notice ${last.c === last.n ? 'info' : ''}" style="margin-top:14px">${ICON.redo}<div><b>Kiểm tra lại lần ${run.rounds.length}:</b> đúng ${last.c}/${last.n}, còn ${last.n - last.c} từ sai${last.left ? ` (có ${last.left} từ hết giờ chưa kịp làm)` : ''}.</div></div>` : ''}
+      <button class="btn block" id="rGo" style="margin-top:12px">${ICON.redo}Kiểm tra lại ${run.pending.length} từ sai</button>
+      <div class="small muted center" style="margin-top:6px">Kiểm tra lại lần ${nextRound} · làm bài tối đa ${fmtLimit(testLimitSec(run.pending, useMic()))}</div>`;
   }
   app.innerHTML = `<div>
     ${topbar(`Cấp ${lv.n}`)}
@@ -879,8 +879,8 @@ SCREENS.result = (n) => {
     ${action}
     ${!L && run.wrong.length ? `<div class="section-title">${run.wrong.length} từ còn sai</div>
       <div class="word-list">${run.wrong.map(([i, heard, left]) => wordRow(i, { heard, left: !!left, showHeard: true })).join('')}</div>` : ''}
-    ${run.rounds.length ? `<div class="section-title">Các lần thi lại</div>
-      <div class="word-list">${run.rounds.map((r, k) => `<div class="hist-row"><div class="h-main"><div class="h-title">Thi lại lần ${k + 1}</div><div class="h-sub">${fmtDate(r.t)} · đúng ${r.c}/${r.n} · còn ${r.n - r.c} từ sai</div></div><span class="pill ${grade(pct(r.c, r.n))}">${pct(r.c, r.n)}%</span></div>`).join('')}</div>` : ''}
+    ${run.rounds.length ? `<div class="section-title">Các lần kiểm tra lại</div>
+      <div class="word-list">${run.rounds.map((r, k) => `<div class="hist-row"><div class="h-main"><div class="h-title">Kiểm tra lại lần ${k + 1}</div><div class="h-sub">${fmtDate(r.t)} · đúng ${r.c}/${r.n} · còn ${r.n - r.c} từ sai</div></div><span class="pill ${grade(pct(r.c, r.n))}">${pct(r.c, r.n)}%</span></div>`).join('')}</div>` : ''}
     <div class="btn-row" style="margin-top:18px">
       <button class="btn ghost" id="rHome">Trang chủ</button>
       <button class="btn ghost" id="rReport">${ICON.chart}Báo cáo tổng hợp</button>
@@ -902,11 +902,11 @@ SCREENS.done = (id) => {
       <div style="font-size:46px;line-height:1">🎉</div>
       <h2 class="sum-title" style="margin-top:8px">Hoàn thành cấp ${r.lv}!</h2>
       <div class="muted small">${esc(r.name)} · ${fmtDate(r.t)}</div>
-      <div style="margin-top:10px;font-weight:700">${r.retakes ? `Thi lại ${r.retakes} lần thì hết từ sai` : 'Đúng hết ngay lần 1, không phải thi lại'}</div>
+      <div style="margin-top:10px;font-weight:700">${r.retakes ? `Kiểm tra lại ${r.retakes} lần thì hết từ sai` : 'Đúng hết ngay lần 1, không phải kiểm tra lại'}</div>
       <div class="section-title" style="margin:18px 0 0">Báo cáo lần 1</div>
       ${firstStats(r.first.c, r.first.n)}
     </div>
-    <p class="small muted center" style="margin:12px 6px">Đã lưu vào Báo cáo tổng hợp. Danh sách từ sai của cấp này đã làm mới, lần sau bấm vào cấp sẽ thi lại từ đầu.</p>
+    <p class="small muted center" style="margin:12px 6px">Đã lưu vào Báo cáo tổng hợp. Danh sách từ sai của cấp này đã làm mới, lần sau bấm vào cấp sẽ kiểm tra lại từ đầu.</p>
     <div class="btn-row">
       <button class="btn ghost" id="dHome">Trang chủ</button>
       <button class="btn" id="dReport">${ICON.chart}Báo cáo tổng hợp</button>
@@ -932,10 +932,10 @@ function bindWordRows(root) {
   root.querySelectorAll('[data-say]').forEach((b) => (b.onclick = () => speakEn(W(+b.dataset.say).en)));
 }
 
-/* ---------- Báo cáo tổng hợp: chỉ lấy số liệu báo cáo lần 1 và số lần thi lại để hoàn thành cấp ---------- */
+/* ---------- Báo cáo tổng hợp: chỉ lấy số liệu báo cáo lần 1 và số lần kiểm tra lại để hoàn thành cấp ---------- */
 SCREENS.report = () => {
   const R = store.reports;
-  // xếp theo cấp: mỗi lần hoàn thành cấp ghi kết quả lần 1 (đúng / sai / tổng, đạt %) và số lần thi lại
+  // xếp theo cấp: mỗi lần hoàn thành cấp ghi kết quả lần 1 (đúng / sai / tổng, đạt %) và số lần kiểm tra lại
   const levelBlock = (lv) => {
     const list = R.filter((r) => r.lv === lv.n);
     return `<div class="card" style="margin-bottom:12px">
@@ -948,14 +948,14 @@ SCREENS.report = () => {
             <div class="stat ok"><b style="font-size:17px">${r.first.c}/${r.first.n}</b><span>Đúng</span></div>
             <div class="stat bad"><b style="font-size:17px">${r.first.n - r.first.c}/${r.first.n}</b><span>Sai</span></div>
             <div class="stat"><b style="font-size:17px">${p}%</b><span>Đạt</span></div>
-            <div class="stat"><b style="font-size:17px">${r.retakes} lần</b><span>Thi lại</span></div>
+            <div class="stat"><b style="font-size:17px">${r.retakes} lần</b><span>Kiểm tra lại</span></div>
           </div>
         </div>`; }).join('')}
     </div>`;
   };
   app.innerHTML = `<div>
     ${topbar('Báo cáo tổng hợp')}
-    <p class="muted small" style="margin:0 2px 12px">Theo từng cấp: kết quả thi lần 1 (số từ đúng, số từ sai trên tổng số từ, đạt bao nhiêu %) và số lần thi lại để hoàn thành cấp.</p>
+    <p class="muted small" style="margin:0 2px 12px">Theo từng cấp: kết quả kiểm tra lần 1 (số từ đúng, số từ sai trên tổng số từ, đạt bao nhiêu %) và số lần kiểm tra lại để hoàn thành cấp.</p>
     ${LEVELS.map(levelBlock).join('')}
 
     <div class="section-title">Dữ liệu trên máy này</div>
@@ -988,7 +988,7 @@ SCREENS.report = () => {
     } catch (err) { toast('File không đúng định dạng.'); }
   };
   $('#rReset').onclick = () => {
-    if (!confirm('Xóa toàn bộ báo cáo và bài đang thi dở trên máy này? Không hoàn tác được.')) return;
+    if (!confirm('Xóa toàn bộ báo cáo và bài đang kiểm tra dở trên máy này? Không hoàn tác được.')) return;
     store.reports = []; store.runs = {}; store.days = []; saveStore(); toast('Đã xóa dữ liệu.'); go('report');
   };
 };
@@ -1063,12 +1063,12 @@ SCREENS.help = () => {
       <h3 style="margin-top:0">Cách học</h3>
       <ul>
         <li>1.923 từ chia thành <b>8 cấp</b>. Cấp 1 Nền tảng (271 từ, bài 1-27), cấp 2 Đời sống (273 từ, bài 28-54). Cấp 3, 4, 5 là Thông dụng, mỗi cấp 240 từ trộn lẫn từ bài 55-126. Cấp 6, 7, 8 là Mở rộng (220, 220, 219 từ) trộn lẫn từ bài 127-192.</li>
-        <li>Bấm vào cấp là vào thi luôn, một lượt hết cả cấp. Thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 240 từ = 12 phút). Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
+        <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 240 từ = 12 phút). Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
         <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ nào cũng vậy. Quá giờ tính là sai. Máy tự chấm. Không có mic thì gõ từ, thời gian theo độ dài: 3 giây + 0,5 giây mỗi chữ cái (go 4 giây, family 6 giây, beautiful 8 giây).</li>
         <li>Sau mỗi từ, máy đọc phát âm chuẩn và cho xem máy đã nghe được gì.</li>
-        <li>Thi xong lần đầu có <b>Báo cáo lần 1</b>: số câu đúng, số câu sai trên tổng số câu và đạt bao nhiêu %, kèm danh sách từ sai.</li>
-        <li>Bấm <b>Thi lại</b> để thi những từ còn sai. Lần nào còn sai thì thi lại tiếp, tới khi không còn từ sai là <b>hoàn thành cấp</b>. Đang thi mà tắt app thì mở lại bấm vào cấp sẽ thi tiếp chỗ đang dở.</li>
-        <li>Hoàn thành cấp thì kết quả lần 1 và số lần thi lại được ghi vào <b>Báo cáo tổng hợp</b>. Danh sách từ sai của cấp được làm mới, lần sau thi lại từ đầu.</li>
+        <li>Kiểm tra xong lần đầu có <b>Báo cáo lần 1</b>: số câu đúng, số câu sai trên tổng số câu và đạt bao nhiêu %, kèm danh sách từ sai.</li>
+        <li>Bấm <b>Kiểm tra lại</b> để kiểm tra những từ còn sai. Lần nào còn sai thì kiểm tra lại tiếp, tới khi không còn từ sai là <b>hoàn thành cấp</b>. Đang kiểm tra mà tắt app thì mở lại bấm vào cấp sẽ kiểm tra tiếp chỗ đang dở.</li>
+        <li>Hoàn thành cấp thì kết quả lần 1 và số lần kiểm tra lại được ghi vào <b>Báo cáo tổng hợp</b>. Danh sách từ sai của cấp được làm mới, lần sau kiểm tra lại từ đầu.</li>
       </ul>
       <h3>Trình duyệt nên dùng</h3>
       <ul>

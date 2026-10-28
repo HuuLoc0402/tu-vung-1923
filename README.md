@@ -1,6 +1,6 @@
 # 1923 Từ - Luyện nói từ vựng tiếng Anh
 
-App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa tiếng Việt, bấm nút mic và nói từ tiếng Anh trong 3 giây (hoặc gõ phím nếu không có mic), máy tự chấm, nghe phát âm chuẩn, có báo cáo lần 1, thi lại tới khi hết từ sai và báo cáo tổng hợp. Chạy được trên điện thoại và máy tính, cài lên màn hình chính như một app.
+App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa tiếng Việt, bấm nút mic và nói từ tiếng Anh trong 3 giây (hoặc gõ phím nếu không có mic), máy tự chấm, nghe phát âm chuẩn, có báo cáo lần 1, kiểm tra lại tới khi hết từ sai và báo cáo tổng hợp. Chạy được trên điện thoại và máy tính, cài lên màn hình chính như một app.
 
 ## Cách chia cấp
 
@@ -16,14 +16,14 @@ App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa t
 
 Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định rồi chia đều, nên máy nào cũng ra cùng một bộ từ; 3 cấp Thông dụng gộp lại đủ 720 từ, 3 cấp Mở rộng đủ 659 từ, không trùng.
 
-## Cách thi
+## Cách kiểm tra
 
-- Bấm vào cấp là vào thi luôn, một lượt hết cả cấp (thứ tự từ xáo mỗi lần).
+- Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp (thứ tự từ xáo mỗi lần).
 - Nói: mỗi từ 3 giây. Gõ phím (khi không có mic): 3 giây + 0,5 giây mỗi chữ cái.
 - Thời gian làm bài tối đa = tổng thời gian trả lời các từ. Đồng hồ chỉ chạy lúc trả lời, không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.
-- Thi xong lần đầu có **Báo cáo lần 1** (đúng/sai trên tổng số câu, đạt %). Bấm "Thi lại ... từ sai" để thi lại những từ còn sai, lặp tới khi hết sai là hoàn thành cấp.
-- Hoàn thành cấp: ghi một dòng vào **Báo cáo tổng hợp** (kết quả lần 1 + số lần thi lại), rồi xóa danh sách từ sai của cấp đó.
-- Bài đang thi được lưu sau mỗi từ; tắt app mở lại vẫn thi tiếp được.
+- Kiểm tra xong lần đầu có **Báo cáo lần 1** (đúng/sai trên tổng số câu, đạt %). Bấm "Kiểm tra lại ... từ sai" để kiểm tra lại những từ còn sai, lặp tới khi hết sai là hoàn thành cấp.
+- Hoàn thành cấp: ghi một dòng vào **Báo cáo tổng hợp** (kết quả lần 1 + số lần kiểm tra lại), rồi xóa danh sách từ sai của cấp đó.
+- Bài đang kiểm tra được lưu sau mỗi từ; tắt app mở lại vẫn kiểm tra tiếp được.
 
 ## Các file
 
