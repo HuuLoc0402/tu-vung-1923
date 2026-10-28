@@ -6,7 +6,7 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -935,24 +935,28 @@ function bindWordRows(root) {
 /* ---------- Báo cáo tổng hợp: chỉ lấy số liệu báo cáo lần 1 và số lần thi lại để hoàn thành cấp ---------- */
 SCREENS.report = () => {
   const R = store.reports;
-  const doneLv = new Set(R.map((r) => r.lv)).size;
-  const avg = R.length ? Math.round(R.reduce((a, r) => a + pct(r.first.c, r.first.n), 0) / R.length) : null;
+  // xếp theo cấp: mỗi lần hoàn thành cấp ghi kết quả lần 1 (đúng / sai / tổng, đạt %) và số lần thi lại
+  const levelBlock = (lv) => {
+    const list = R.filter((r) => r.lv === lv.n);
+    return `<div class="card" style="margin-bottom:12px">
+      <div class="row">${levelBadge(lv)}<div class="grow"><div class="level-name">Cấp ${lv.n} · ${esc(lv.name)}</div>
+        <div class="level-meta">${list.length ? `Đã hoàn thành ${list.length} lần` : 'Chưa hoàn thành'}</div></div></div>
+      ${list.map((r, k) => { const p = pct(r.first.c, r.first.n); return `
+        <div style="margin-top:14px">
+          <div class="small" style="font-weight:700">Hoàn thành lần ${k + 1} <span class="muted" style="font-weight:500">· ${fmtDate(r.t)}</span></div>
+          <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px">
+            <div class="stat ok"><b style="font-size:17px">${r.first.c}/${r.first.n}</b><span>Đúng</span></div>
+            <div class="stat bad"><b style="font-size:17px">${r.first.n - r.first.c}/${r.first.n}</b><span>Sai</span></div>
+            <div class="stat"><b style="font-size:17px">${p}%</b><span>Đạt</span></div>
+            <div class="stat"><b style="font-size:17px">${r.retakes} lần</b><span>Thi lại</span></div>
+          </div>
+        </div>`; }).join('')}
+    </div>`;
+  };
   app.innerHTML = `<div>
     ${topbar('Báo cáo tổng hợp')}
-    <p class="muted small" style="margin:0 2px 12px">Mỗi lần hoàn thành một cấp (thi lại tới khi không còn từ sai) là một dòng: kết quả lần 1 và số lần thi lại.</p>
-    <div class="tiles">
-      <div class="tile"><b>${R.length}</b><span>lần hoàn thành cấp</span></div>
-      <div class="tile"><b>${doneLv}/${LEVELS.length}</b><span>cấp đã hoàn thành</span></div>
-      <div class="tile"><b>${avg == null ? '-' : avg + '%'}</b><span>lần 1 đạt trung bình</span></div>
-      <div class="tile"><b>${R.length ? (R.reduce((a, r) => a + r.retakes, 0) / R.length).toFixed(1).replace('.', ',') : '-'}</b><span>lần thi lại trung bình</span></div>
-    </div>
-    <div class="section-title">Lịch sử làm bài</div>
-    ${R.length ? `<div class="word-list">${R.slice().reverse().map((r) => { const p = pct(r.first.c, r.first.n); return `<div class="hist-row">
-      <div class="h-main"><div class="h-title">Cấp ${r.lv} · ${esc(r.name)}</div>
-      <div class="h-sub">${fmtDate(r.t)} · Lần 1: đúng ${r.first.c}/${r.first.n}, sai ${r.first.n - r.first.c}/${r.first.n}</div>
-      <div class="h-sub"><b>${r.retakes ? `Thi lại ${r.retakes} lần` : 'Không phải thi lại'}</b> để hoàn thành</div></div>
-      <span class="pill ${grade(p)}">${p}%</span></div>`; }).join('')}</div>`
-    : '<div class="card empty">Chưa hoàn thành cấp nào.<br>Thi xong một cấp và thi lại tới khi hết từ sai thì kết quả hiện ở đây.</div>'}
+    <p class="muted small" style="margin:0 2px 12px">Theo từng cấp: kết quả thi lần 1 (số từ đúng, số từ sai trên tổng số từ, đạt bao nhiêu %) và số lần thi lại để hoàn thành cấp.</p>
+    ${LEVELS.map(levelBlock).join('')}
 
     <div class="section-title">Dữ liệu trên máy này</div>
     <div class="card">
