@@ -1,23 +1,29 @@
 # 1923 Từ - Luyện nói từ vựng tiếng Anh
 
-App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa tiếng Việt, bấm nút mic và nói từ tiếng Anh trong 3 giây (hoặc gõ phím nếu không có mic), máy tự chấm, nghe phát âm chuẩn, có tổng kết và báo cáo tiến bộ. Chạy được trên điện thoại và máy tính, cài lên màn hình chính như một app.
+App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa tiếng Việt, bấm nút mic và nói từ tiếng Anh trong 3 giây (hoặc gõ phím nếu không có mic), máy tự chấm, nghe phát âm chuẩn, có báo cáo lần 1, thi lại tới khi hết từ sai và báo cáo tổng hợp. Chạy được trên điện thoại và máy tính, cài lên màn hình chính như một app.
 
 ## Cách chia cấp
 
-Chia đúng như file gốc `raw/2548a81c-1923-tu-tieng-anh-thong-dung_1.xlsx` (sheet "Bản học"): 192 bài, mỗi bài khoảng 10 từ. Trong file, cấp 3 và cấp 4 có 2 phần; mỗi phần là một cấp trong app, nên app có 6 cấp. Mỗi cấp chia thêm thành các chặng, mỗi chặng gồm khoảng 5 bài liền nhau (~50 từ).
+1.923 từ lấy từ file gốc `raw/2548a81c-1923-tu-tieng-anh-thong-dung_1.xlsx` (sheet "Bản học"), chia thành 8 cấp:
 
-| Cấp trong app | Tên | Trong file | Số từ | Bài |
+| Cấp trong app | Tên | Lấy từ file | Số từ | Thời gian tối đa (× 3 giây) |
 |---|---|---|---|---|
-| 1 | Nền tảng | Cấp 1 | 271 | 1-27 |
-| 2 | Đời sống | Cấp 2 | 273 | 28-54 |
-| 3 | Thông dụng · Phần 1 | Cấp 3, phần 1 | 360 | 55-90 |
-| 4 | Thông dụng · Phần 2 | Cấp 3, phần 2 | 360 | 91-126 |
-| 5 | Mở rộng · Phần 1 | Cấp 4, phần 1 | 330 | 127-159 |
-| 6 | Mở rộng · Phần 2 | Cấp 4, phần 2 | 329 | 160-192 |
+| 1 | Nền tảng | Cấp 1, bài 1-27 | 271 | 13 phút 33 giây |
+| 2 | Đời sống | Cấp 2, bài 28-54 | 273 | 13 phút 39 giây |
+| 3, 4, 5 | Thông dụng · Phần 1-3 | Cấp 3, trộn lẫn bài 55-126 | 240 mỗi cấp | 12 phút |
+| 6, 7 | Mở rộng · Phần 1-2 | Cấp 4, trộn lẫn bài 127-192 | 220 mỗi cấp | 11 phút |
+| 8 | Mở rộng · Phần 3 | Cấp 4, trộn lẫn bài 127-192 | 219 | 10 phút 57 giây |
 
-Thời gian trả lời: nói thì mỗi từ 3 giây; gõ phím thì theo độ dài từ, 3 giây + 0,5 giây mỗi chữ cái (go 4 giây, family 6 giây, beautiful 8 giây).
+Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định rồi chia đều, nên máy nào cũng ra cùng một bộ từ; 3 cấp Thông dụng gộp lại đủ 720 từ, 3 cấp Mở rộng đủ 659 từ, không trùng.
 
-Thời gian làm bài tối đa của bài cả cấp = số từ × 3 giây (cấp 1: 13 phút 33 giây, cấp 2: 13 phút 39 giây, cấp 3 và 4: 18 phút, cấp 5: 16 phút 30 giây, cấp 6: 16 phút 27 giây). Đồng hồ chỉ chạy lúc người học trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm, nên cả bài thực tế lâu hơn con số này.
+## Cách thi
+
+- Bấm vào cấp là vào thi luôn, một lượt hết cả cấp (thứ tự từ xáo mỗi lần).
+- Nói: mỗi từ 3 giây. Gõ phím (khi không có mic): 3 giây + 0,5 giây mỗi chữ cái.
+- Thời gian làm bài tối đa = tổng thời gian trả lời các từ. Đồng hồ chỉ chạy lúc trả lời, không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.
+- Thi xong lần đầu có **Báo cáo lần 1** (đúng/sai trên tổng số câu, đạt %). Bấm "Thi lại ... từ sai" để thi lại những từ còn sai, lặp tới khi hết sai là hoàn thành cấp.
+- Hoàn thành cấp: ghi một dòng vào **Báo cáo tổng hợp** (kết quả lần 1 + số lần thi lại), rồi xóa danh sách từ sai của cấp đó.
+- Bài đang thi được lưu sau mỗi từ; tắt app mở lại vẫn thi tiếp được.
 
 ## Các file
 
