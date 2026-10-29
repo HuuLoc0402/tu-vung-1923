@@ -6,7 +6,7 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.0.2';
+const APP_VERSION = '2.1.0';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -59,6 +59,7 @@ for (const g of LEVEL_GROUPS) {
 }
 
 /* ---------------- lưu trữ ----------------
+   Hai chế độ Nói và Gõ phím là hai "sổ" riêng: books.voice và books.type, mỗi sổ có runs và reports của mình.
    runs[cấp]: lượt kiểm tra đang dở của cấp đó (báo cáo lần 1, các lần kiểm tra lại, từ còn sai, bài đang làm dở).
    reports: báo cáo tổng hợp, mỗi lần hoàn thành một cấp là một dòng. Giữ lại kể cả khi lượt kiểm tra của cấp đã xóa. */
 const DEFAULT_SETTINGS = {
@@ -71,12 +72,20 @@ function loadStore() {
   const old = data ? null : readJSON(OLD_STORE_KEY);
   if (!data || typeof data !== 'object') data = {};
   return {
-    ver: 1,
-    runs: data.runs && typeof data.runs === 'object' ? data.runs : {},
-    reports: Array.isArray(data.reports) ? data.reports : [],
+    ver: 2,
+    books: readBooks(data),
     settings: Object.assign({}, DEFAULT_SETTINGS, (old && old.settings) || {}, data.settings || {}),
     days: Array.isArray(data.days) ? data.days : [],
   };
+}
+/* sổ của một chế độ; dữ liệu bản cũ (chưa tách chế độ) tính vào chế độ Nói */
+function readBook(b) {
+  b = b && typeof b === 'object' ? b : {};
+  return { runs: b.runs && typeof b.runs === 'object' ? b.runs : {}, reports: Array.isArray(b.reports) ? b.reports : [] };
+}
+function readBooks(data) {
+  if (data.books && typeof data.books === 'object') return { voice: readBook(data.books.voice), type: readBook(data.books.type) };
+  return { voice: readBook(data), type: readBook(null) };
 }
 function saveStore() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
@@ -398,10 +407,15 @@ function supportNotice() {
   return '';
 }
 const useMic = () => S.mode !== 'type' && !!getSR() && window.isSecureContext && !micBlocked;
+/* Chế độ đang chọn ở Cài đặt (máy không có nhận giọng nói thì chỉ có Gõ phím). Mỗi chế độ có tiến độ và báo cáo riêng. */
+const modeKey = () => (S.mode === 'type' || !getSR() || !window.isSecureContext ? 'type' : 'voice');
+const MODE_NAME = { voice: 'Nói', type: 'Gõ phím' };
+const book = (m = modeKey()) => store.books[m];
 /* Nói: mỗi từ cùng một thời gian (mặc định 3 giây).
-   Gõ phím: theo độ dài từ, 3 giây để nghĩ + 0,5 giây cho mỗi chữ cái (go 4s, family 6s, beautiful 8s, responsibility 10s) */
+   Gõ phím: theo độ dài từ, từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây, làm tròn lên
+   (cat 4s, family 5s, beautiful 7s, international 9s) */
 const answerSeconds = () => S.seconds;
-const typeSeconds = (en) => Math.ceil(3 + en.length * 0.5);
+const typeSeconds = (en) => Math.ceil(3 + Math.max(0, en.length - 2) * 0.5);
 /* Thời gian làm bài tối đa của một bài = tổng thời gian trả lời của các từ trong bài
    (vd 360 từ × 3 giây = 18 phút). Chỉ tính lúc người học trả lời, không tính lúc máy đọc nghĩa, phát âm. */
 const testLimitSec = (items, voice) => items.reduce((a, i) => a + (voice ? answerSeconds(WORDS[i][0]) : typeSeconds(WORDS[i][0])), 0);
@@ -414,8 +428,9 @@ const SCREENS = {};
 
 /* ---------- Trang chủ: bấm vào cấp là vào kiểm tra luôn ---------- */
 SCREENS.home = () => {
-  const doneLv = new Set(store.reports.map((r) => r.lv)).size;
-  const started = store.reports.length || Object.keys(store.runs).length;
+  const B = book(), mk = modeKey();
+  const doneLv = new Set(B.reports.map((r) => r.lv)).size;
+  const started = B.reports.length || Object.keys(B.runs).length;
   const notice = supportNotice();
   app.innerHTML = `<div>
     <div class="topbar">
@@ -426,10 +441,11 @@ SCREENS.home = () => {
     </div>
     <div class="hero">
       <h2>${started ? 'Chào bạn, kiểm tra tiếp nào!' : 'Chào bạn 👋'}</h2>
-      <p>Bấm vào một cấp là vào kiểm tra luôn. Nhìn nghĩa tiếng Việt, nói từ tiếng Anh trong ${S.seconds} giây. Từ nào sai thì kiểm tra lại tới khi hết sai.</p>
+      <button class="mode-chip" id="btnMode" title="Đổi chế độ ở Cài đặt">Chế độ: <b>${MODE_NAME[mk]}</b> · đổi ở Cài đặt</button>
+      <p>Bấm vào một cấp là vào kiểm tra luôn. Nhìn nghĩa tiếng Việt, ${mk === 'voice' ? `nói từ tiếng Anh trong ${S.seconds} giây` : 'gõ từ tiếng Anh, từ càng dài càng có thêm giây'}. Từ nào sai thì kiểm tra lại tới khi hết sai.</p>
       <div class="hero-stats">
         <div class="hero-stat"><b>${doneLv}/${LEVELS.length}</b><span>cấp đã hoàn thành</span></div>
-        <div class="hero-stat"><b>${store.reports.length}</b><span>lần hoàn thành</span></div>
+        <div class="hero-stat"><b>${B.reports.length}</b><span>lần hoàn thành</span></div>
         <div class="hero-stat"><b>${streakDays()}</b><span>ngày liên tiếp</span></div>
       </div>
     </div>
@@ -437,8 +453,8 @@ SCREENS.home = () => {
     <div class="section-title">${LEVELS.length} cấp độ · 1.923 từ</div>
     <div class="level-grid">
       ${LEVELS.map((lv) => {
-        const run = store.runs[lv.n];
-        const st = levelStatus(lv, run);
+        const run = B.runs[lv.n];
+        const st = levelStatus(lv, run, B);
         return `<button class="level-card" data-level="${lv.n}">
           ${levelBadge(lv)}
           <div class="level-info">
@@ -454,15 +470,16 @@ SCREENS.home = () => {
   </div>`;
   app.querySelectorAll('[data-level]').forEach((b) => (b.onclick = () => {
     const n = +b.dataset.level;
-    if (store.runs[n]) go('result', n); else startRound(n);
+    if (B.runs[n]) go('result', n); else startRound(n);
   }));
+  $('#btnMode').onclick = () => go('settings');
   $('#btnReport').onclick = () => go('report');
   $('#btnSettings').onclick = () => go('settings');
   const ib = $('#btnInstall');
   if (deferredInstall) { ib.hidden = false; ib.onclick = doInstall; }
 };
-function levelStatus(lv, run) {
-  const times = store.reports.filter((r) => r.lv === lv.n).length;
+function levelStatus(lv, run, B) {
+  const times = B.reports.filter((r) => r.lv === lv.n).length;
   if (!run) return { text: times ? `Đã hoàn thành ${times} lần. Bấm để kiểm tra lượt mới` : 'Chưa kiểm tra. Bấm để kiểm tra', big: times, small: 'lần xong' };
   const L = run.live;
   if (!run.first) return { text: 'Đang kiểm tra lần 1 dở, bấm để kiểm tra tiếp', big: `${L ? L.results.length : 0}/${lv.size}`, small: 'đã làm' };
@@ -477,7 +494,7 @@ function quickToggles() {
   const micOk = !!getSR() && window.isSecureContext && !micBlocked;
   return `<div class="toggles">
     <div class="toggle-row">
-      <div class="t-main"><div class="t-title">Trả lời bằng</div><div class="t-sub">${micOk ? 'Nói vào mic hoặc gõ phím. Máy tự chấm cả hai.' : 'Máy này chưa dùng được mic nên trả lời bằng gõ phím.'}</div></div>
+      <div class="t-main"><div class="t-title">Trả lời bằng</div><div class="t-sub">${micOk ? 'Hai chế độ riêng, mỗi chế độ có tiến độ, từ sai và báo cáo của mình. Đổi chế độ không mất tiến độ bên kia.' : 'Máy này chưa dùng được mic nên trả lời bằng gõ phím.'}</div></div>
       <div class="seg" data-set="mode">
         <button data-v="voice" class="${S.mode !== 'type' && micOk ? 'on' : ''}" ${micOk ? '' : 'disabled'}>Nói</button>
         <button data-v="type" class="${S.mode === 'type' || !micOk ? 'on' : ''}">Gõ phím</button>
@@ -515,7 +532,8 @@ function bindQuickToggles(root) {
 let T = null;
 async function startRound(n) {
   const lv = LEVELS[n - 1];
-  const run = store.runs[n] || (store.runs[n] = { started: Date.now(), first: null, rounds: [], pending: [], wrong: [], live: null });
+  const mode = modeKey(), B = book(mode);
+  const run = B.runs[n] || (B.runs[n] = { started: Date.now(), first: null, rounds: [], pending: [], wrong: [], live: null });
   if (!run.live) {
     const items = shuffle(run.first ? run.pending : lv.items);
     if (!items.length) return toast('Không có từ nào để kiểm tra.');
@@ -531,11 +549,11 @@ async function startRound(n) {
   if (!L.limitMs) L.limitMs = testLimitSec(L.items, useMic()) * 1000;
   saveStore();
   T = {
-    lv: n, run, kind: L.kind, round: L.round, items: L.items, pos: L.results.length,
+    lv: n, run, mode, kind: L.kind, round: L.round, items: L.items, pos: L.results.length,
     results: L.results.map(([i, ok, heard]) => ({ i, ok: !!ok, heard })),
     token: 0, paused: false, startedAt: L.startedAt, phase: 'idle', cancelTap: null,
     limitMs: L.limitMs, usedMs: L.usedMs, runFrom: null, timeUp: false,
-    title: `Cấp ${lv.n} · ${lv.name}`, sub: L.kind === 'first' ? 'Lần 1 · cả cấp' : `Kiểm tra lại lần ${L.round}`,
+    title: `Cấp ${lv.n} · ${lv.name}`, sub: `${MODE_NAME[mode]} · ${L.kind === 'first' ? 'Lần 1 · cả cấp' : `Kiểm tra lại lần ${L.round}`}`,
   };
   go('test');
 }
@@ -813,7 +831,7 @@ function resumeTest() {
 function finishTest() {
   T.token++;
   Voice.stop(); stopListening(); if (T.cancelTap) T.cancelTap(); clockStop();
-  const run = T.run, lv = LEVELS[T.lv - 1];
+  const run = T.run, lv = LEVELS[T.lv - 1], B = book(T.mode);
   // hết giờ: các từ chưa kịp làm tính là sai và vào lần kiểm tra lại
   const answered = new Set(T.results.map((r) => r.i));
   const left = T.items.filter((i) => !answered.has(i));
@@ -828,8 +846,8 @@ function finishTest() {
   if (!wrong.length) {
     // hết từ sai: hoàn thành cấp, ghi vào báo cáo tổng hợp, xóa từ sai và bài kiểm tra của cấp
     const rep = { id: Date.now(), t: Date.now(), started: run.started, lv: lv.n, name: lv.name, first: { c: run.first.c, n: run.first.n }, retakes: run.rounds.length };
-    store.reports.push(rep);
-    delete store.runs[lv.n];
+    B.reports.push(rep);
+    delete B.runs[lv.n];
     saveStore();
     return go('done', rep.id);
   }
@@ -852,7 +870,7 @@ const firstStats = (c, n) => `<div class="stat-grid">
 
 /* ---------- Kết quả của lượt kiểm tra đang dở: báo cáo lần 1, các lần kiểm tra lại, nút kiểm tra lại ---------- */
 SCREENS.result = (n) => {
-  const lv = LEVELS[n - 1]; const run = store.runs[n];
+  const lv = LEVELS[n - 1]; const run = book().runs[n];
   if (!run) return go('home');
   const F = run.first, L = run.live;
   const last = run.rounds[run.rounds.length - 1];
@@ -872,7 +890,7 @@ SCREENS.result = (n) => {
     ${F ? `<div class="card sum-hero">
       <div class="section-title" style="margin:0 0 6px">Báo cáo lần 1</div>
       ${ringSvg(pct(F.c, F.n))}
-      <div class="muted small">Cấp ${lv.n} · ${esc(lv.name)} · ${fmtDate(F.t)}</div>
+      <div class="muted small">Cấp ${lv.n} · ${esc(lv.name)} · ${MODE_NAME[modeKey()]} · ${fmtDate(F.t)}</div>
       ${F.left ? `<div class="small" style="margin-top:6px;color:var(--bad);font-weight:600">Hết giờ, ${F.left} từ chưa kịp làm, tính là sai</div>` : ''}
       ${firstStats(F.c, F.n)}
     </div>` : `<div class="card"><div class="level-name">Cấp ${lv.n} · ${esc(lv.name)}</div><div class="level-meta">${lv.size} từ · ${esc(lv.fileRef)}</div></div>`}
@@ -894,14 +912,14 @@ SCREENS.result = (n) => {
 
 /* ---------- Hoàn thành cấp ---------- */
 SCREENS.done = (id) => {
-  const r = store.reports.find((x) => x.id === id);
+  const r = book().reports.find((x) => x.id === id);
   if (!r) return go('home');
   app.innerHTML = `<div>
     ${topbar('Hoàn thành cấp')}
     <div class="card sum-hero">
       <div style="font-size:46px;line-height:1">🎉</div>
       <h2 class="sum-title" style="margin-top:8px">Hoàn thành cấp ${r.lv}!</h2>
-      <div class="muted small">${esc(r.name)} · ${fmtDate(r.t)}</div>
+      <div class="muted small">${esc(r.name)} · ${MODE_NAME[modeKey()]} · ${fmtDate(r.t)}</div>
       <div style="margin-top:10px;font-weight:700">${r.retakes ? `Kiểm tra lại ${r.retakes} lần thì hết từ sai` : 'Đúng hết ngay lần 1, không phải kiểm tra lại'}</div>
       <div class="section-title" style="margin:18px 0 0">Báo cáo lần 1</div>
       ${firstStats(r.first.c, r.first.n)}
@@ -933,8 +951,8 @@ function bindWordRows(root) {
 }
 
 /* ---------- Báo cáo tổng hợp: chỉ lấy số liệu báo cáo lần 1 và số lần kiểm tra lại để hoàn thành cấp ---------- */
-SCREENS.report = () => {
-  const R = store.reports;
+SCREENS.report = (mode = modeKey()) => {
+  const R = book(mode).reports;
   // xếp theo cấp: mỗi lần hoàn thành cấp ghi kết quả lần 1 (đúng / sai / tổng, đạt %) và số lần kiểm tra lại
   const levelBlock = (lv) => {
     const list = R.filter((r) => r.lv === lv.n);
@@ -955,7 +973,8 @@ SCREENS.report = () => {
   };
   app.innerHTML = `<div>
     ${topbar('Báo cáo tổng hợp')}
-    <p class="muted small" style="margin:0 2px 12px">Theo từng cấp: kết quả kiểm tra lần 1 (số từ đúng, số từ sai trên tổng số từ, đạt bao nhiêu %) và số lần kiểm tra lại để hoàn thành cấp.</p>
+    <div class="seg" id="rMode" style="display:flex;margin-bottom:12px">${['voice', 'type'].map((m) => `<button data-v="${m}" style="flex:1" class="${m === mode ? 'on' : ''}">Chế độ ${MODE_NAME[m]}</button>`).join('')}</div>
+    <p class="muted small" style="margin:0 2px 12px">Chế độ <b>${MODE_NAME[mode]}</b>, theo từng cấp: kết quả kiểm tra lần 1 (số từ đúng, số từ sai trên tổng số từ, đạt bao nhiêu %) và số lần kiểm tra lại để hoàn thành cấp.</p>
     ${LEVELS.map(levelBlock).join('')}
 
     <div class="section-title">Dữ liệu trên máy này</div>
@@ -970,6 +989,7 @@ SCREENS.report = () => {
     </div>
   </div>`;
   bindBack(app);
+  $('#rMode').querySelectorAll('button').forEach((b) => (b.onclick = () => go('report', b.dataset.v)));
   $('#rExport').onclick = () => {
     const blob = new Blob([JSON.stringify(store)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -981,15 +1001,15 @@ SCREENS.report = () => {
     const f = e.target.files[0]; if (!f) return;
     try {
       const d = JSON.parse(await f.text());
-      if (!Array.isArray(d.reports) || typeof d.runs !== 'object') throw new Error('bad');
+      if (!d || typeof d !== 'object' || !(d.books || Array.isArray(d.reports))) throw new Error('bad');
       if (!confirm('Thay dữ liệu hiện tại bằng dữ liệu trong file?')) return;
-      store.reports = d.reports; store.runs = d.runs || {}; store.days = d.days || []; Object.assign(S, d.settings || {});
-      saveStore(); toast('Đã nhập dữ liệu.'); go('report');
+      store.books = readBooks(d); store.days = Array.isArray(d.days) ? d.days : []; Object.assign(S, d.settings || {});
+      saveStore(); toast('Đã nhập dữ liệu.'); go('report', mode);
     } catch (err) { toast('File không đúng định dạng.'); }
   };
   $('#rReset').onclick = () => {
-    if (!confirm('Xóa toàn bộ báo cáo và bài đang kiểm tra dở trên máy này? Không hoàn tác được.')) return;
-    store.reports = []; store.runs = {}; store.days = []; saveStore(); toast('Đã xóa dữ liệu.'); go('report');
+    if (!confirm('Xóa toàn bộ báo cáo và bài đang kiểm tra dở của cả hai chế độ Nói và Gõ phím trên máy này? Không hoàn tác được.')) return;
+    store.books = readBooks({}); store.days = []; saveStore(); toast('Đã xóa dữ liệu.'); go('report', mode);
   };
 };
 
@@ -1000,7 +1020,7 @@ SCREENS.settings = () => {
     ${topbar('Cài đặt')}
     <div class="card"><div class="toggles">
       <div class="toggle-row">
-        <div class="t-main"><div class="t-title">Thời gian nói mỗi từ</div><div class="t-sub">Mặc định 3 giây cho mọi từ. Gõ phím thì tự tính theo độ dài từ.</div></div>
+        <div class="t-main"><div class="t-title">Thời gian nói mỗi từ</div><div class="t-sub">Chế độ Nói: mặc định 3 giây cho mọi từ. Chế độ Gõ phím tự tính theo độ dài từ.</div></div>
         <div class="seg" data-set="seconds">${[3, 5, 8].map((s) => `<button data-v="${s}" class="${S.seconds === s ? 'on' : ''}">${s}s</button>`).join('')}</div>
       </div>
       <div class="toggle-row">
@@ -1063,12 +1083,13 @@ SCREENS.help = () => {
       <h3 style="margin-top:0">Cách học</h3>
       <ul>
         <li>1.923 từ chia thành <b>8 cấp</b>. Cấp 1 Nền tảng (271 từ, bài 1-27), cấp 2 Đời sống (273 từ, bài 28-54). Cấp 3, 4, 5 là Thông dụng, mỗi cấp 240 từ trộn lẫn từ bài 55-126. Cấp 6, 7, 8 là Mở rộng (220, 220, 219 từ) trộn lẫn từ bài 127-192.</li>
-        <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 240 từ = 12 phút). Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
-        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ nào cũng vậy. Quá giờ tính là sai. Máy tự chấm. Không có mic thì gõ từ, thời gian theo độ dài: 3 giây + 0,5 giây mỗi chữ cái (go 4 giây, family 6 giây, beautiful 8 giây).</li>
+        <li>Có <b>2 chế độ</b>: <b>Nói</b> và <b>Gõ phím</b>, chọn ở Cài đặt, mục "Trả lời bằng". Mỗi chế độ có tiến độ, từ sai và báo cáo riêng. Đang nói dở cấp 1 mà chuyển sang gõ phím thì cấp 1 bên gõ bắt đầu từ từ đầu (nếu bên gõ chưa làm), quay lại chế độ Nói vẫn làm tiếp chỗ đang dở.</li>
+        <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Chế độ Nói: thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 240 từ = 12 phút). Chế độ Gõ phím: cộng thời gian gõ của từng từ. Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
+        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ nào cũng vậy. Quá giờ tính là sai. Máy tự chấm. Chế độ Gõ phím thì thời gian theo độ dài từ: từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây).</li>
         <li>Sau mỗi từ, máy đọc phát âm chuẩn và cho xem máy đã nghe được gì.</li>
         <li>Kiểm tra xong lần đầu có <b>Báo cáo lần 1</b>: số câu đúng, số câu sai trên tổng số câu và đạt bao nhiêu %, kèm danh sách từ sai.</li>
         <li>Bấm <b>Kiểm tra lại</b> để kiểm tra những từ còn sai. Lần nào còn sai thì kiểm tra lại tiếp, tới khi không còn từ sai là <b>hoàn thành cấp</b>. Đang kiểm tra mà tắt app thì mở lại bấm vào cấp sẽ kiểm tra tiếp chỗ đang dở.</li>
-        <li>Hoàn thành cấp thì kết quả lần 1 và số lần kiểm tra lại được ghi vào <b>Báo cáo tổng hợp</b>. Danh sách từ sai của cấp được làm mới, lần sau kiểm tra lại từ đầu.</li>
+        <li>Hoàn thành cấp thì kết quả lần 1 và số lần kiểm tra lại được ghi vào <b>Báo cáo tổng hợp</b> của chế độ đang dùng (trong báo cáo bấm "Chế độ Nói" hoặc "Chế độ Gõ phím" để xem từng bên). Danh sách từ sai của cấp được làm mới, lần sau kiểm tra lại từ đầu.</li>
       </ul>
       <h3>Trình duyệt nên dùng</h3>
       <ul>
