@@ -6,7 +6,7 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.1.1';
+const APP_VERSION = '2.1.2';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -1039,8 +1039,8 @@ SCREENS.settings = () => {
     ${topbar('Cài đặt')}
     <div class="card"><div class="toggles">
       <div class="toggle-row">
-        <div class="t-main"><div class="t-title">Thời gian nói mỗi từ</div><div class="t-sub">Chế độ Nói: mặc định 3 giây cho mọi từ. Chế độ Gõ phím tự tính theo độ dài từ.</div></div>
-        <div class="seg" data-set="seconds">${[3, 5, 8].map((s) => `<button data-v="${s}" class="${S.seconds === s ? 'on' : ''}">${s}s</button>`).join('')}</div>
+        <div class="t-main"><div class="t-title">Thời gian nói mỗi từ</div><div class="t-sub">Chỉ cho chế độ Nói. Gõ phím tự tính theo độ dài từ.</div></div>
+        <div class="seg" data-set="seconds">${[3, 4, 5, 8].map((s) => `<button data-v="${s}" class="${S.seconds === s ? 'on' : ''}">${s}s</button>`).join('')}</div>
       </div>
       <div class="toggle-row">
         <div class="t-main"><div class="t-title">Giọng tiếng Anh</div><div class="t-sub">Dùng cho cả phát âm và nhận giọng nói</div></div>
@@ -1103,7 +1103,7 @@ SCREENS.help = () => {
       <ul>
         <li>1.923 từ chia thành <b>8 cấp</b>. Cấp 1 Nền tảng (271 từ, bài 1-27), cấp 2 Đời sống (273 từ, bài 28-54). Cấp 3, 4, 5 là Thông dụng, mỗi cấp 240 từ trộn lẫn từ bài 55-126. Cấp 6, 7, 8 là Mở rộng (220, 220, 219 từ) trộn lẫn từ bài 127-192.</li>
         <li>Có <b>2 chế độ</b>: <b>Nói</b> và <b>Gõ phím</b>, chọn ở Cài đặt, mục "Trả lời bằng". Mỗi chế độ có tiến độ, từ sai và báo cáo riêng. Đang nói dở cấp 1 mà chuyển sang gõ phím thì cấp 1 bên gõ bắt đầu từ từ đầu (nếu bên gõ chưa làm), quay lại chế độ Nói vẫn làm tiếp chỗ đang dở.</li>
-        <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Chế độ Nói: thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 240 từ = 12 phút). Chế độ Gõ phím: cộng thời gian gõ của từng từ. Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
+        <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Chế độ Nói: thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 240 từ = ${fmtLimit(240 * S.seconds)}). Chế độ Gõ phím: cộng thời gian gõ của từng từ. Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
         <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ nào cũng vậy. Quá giờ tính là sai. Máy tự chấm. Chế độ Gõ phím thì thời gian theo độ dài từ: từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây).</li>
         <li>Sau mỗi từ, máy đọc phát âm chuẩn và cho xem máy đã nghe được gì.</li>
         <li>Kiểm tra xong lần đầu có <b>Báo cáo lần 1</b>: số câu đúng, số câu sai trên tổng số câu và đạt bao nhiêu %, kèm danh sách từ sai.</li>
