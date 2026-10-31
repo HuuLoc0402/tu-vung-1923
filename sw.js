@@ -1,6 +1,6 @@
 // Service worker: lưu sẵn app để mở được cả khi mất mạng (nhận giọng nói của Chrome vẫn cần mạng).
-const CACHE = 'tu1923-v2.1.2';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'words.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'tu1923-v2.2.0';
+const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'words.js', 'phrases.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

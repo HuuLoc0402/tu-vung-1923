@@ -3,10 +3,11 @@
 /* =========================================================
    1923 Từ - luyện nói từ vựng tiếng Anh
    Dữ liệu: words.js (WORDS = [en, ipa, vi, ví dụ, dịch ví dụ, nhóm gốc, bài])
+   và phrases.js (100 cụm từ giao tiếp, nối vào cuối WORDS)
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.1.2';
+const APP_VERSION = '2.2.0';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -57,6 +58,23 @@ for (const g of LEVEL_GROUPS) {
     });
   }
 }
+/* 100 cụm từ giao tiếp (phrases.js): nối vào sau 1.923 từ (chỉ số 1923-2022) để tiến độ cũ giữ nguyên chỉ số.
+   Là một phần riêng, kiểm tra liền 1 lượt 100 cụm, không chia bài (chủ nhân chốt 2026-10-31). */
+const WORD_COUNT = WORDS.length;
+WORD_SOURCES.push('Cụm từ giao tiếp');
+const PHRASE_ITEMS = PHRASES.map((p) => WORDS.push([p[0], p[1], p[2], p[3], p[4], WORD_SOURCES.length - 1, 0]) - 1);
+const isPhrase = (i) => i >= WORD_COUNT;
+LEVELS.push({
+  n: LEVELS.length + 1, name: '100 cụm từ giao tiếp', short: 'Cụm từ', part: 0, desc: 'Câu nói ngắn hay dùng hằng ngày',
+  fileRef: 'kiểm tra 1 lượt, không chia bài', mixed: false, phrase: true, color: ['#0ea5e9', '#0369a1'],
+  items: PHRASE_ITEMS, size: PHRASE_ITEMS.length, lessonFrom: 0, lessonTo: 0,
+});
+for (const lv of LEVELS) {
+  lv.tag = lv.phrase ? 'Cụm từ' : `Cấp ${lv.n}`;
+  lv.title = lv.phrase ? lv.name : `Cấp ${lv.n} · ${lv.name}`;
+  lv.unit = lv.phrase ? 'cụm' : 'từ';
+}
+const WORD_LEVELS = LEVELS.filter((lv) => !lv.phrase);
 
 /* ---------------- lưu trữ ----------------
    Hai chế độ Nói và Gõ phím là hai "sổ" riêng: books.voice và books.type, mỗi sổ có runs và reports của mình.
@@ -230,7 +248,7 @@ function lev(a, b) {
 /* Tô đỏ chữ cái gõ sai: so từng chữ với đáp án (không phân biệt hoa/thường).
    Chữ gõ sai hoặc thừa tô đỏ, chỗ thiếu chữ hiện "_" đỏ. vd gõ "tham" cho "than": chữ m đỏ. */
 function typoHtml(typed, target) {
-  const a = String(typed).trim(), b = String(target), A = a.toLowerCase(), B = b.toLowerCase();
+  const a = String(typed).trim().replace(/[’‘`´]/g, "'"), b = String(target), A = a.toLowerCase(), B = b.toLowerCase();
   const m = A.length, n = B.length;
   const d = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => (i ? (j ? 0 : i) : j)));
   for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (A[i - 1] === B[j - 1] ? 0 : 1));
@@ -244,19 +262,47 @@ function typoHtml(typed, target) {
   }
   return out.reverse().join('');
 }
+/* Đáp án để so khi gõ: bỏ dấu ? ! . , (không bắt gõ), giữ dấu ' (bắt buộc gõ) */
+const typeTarget = (en) => en.replace(/[?!.,]/g, '').replace(/\s+/g, ' ').trim();
 const VERDICT_TEXT = { exact: 'Chính xác', near: 'Gần đúng', syn: 'Đúng nghĩa' };
 
-/* Các từ có nghĩa tiếng Việt y hệt nhau (vd "nói" = say/speak): nói từ nào cũng tính đúng */
+/* Các từ có nghĩa tiếng Việt y hệt nhau (vd "nói" = say/speak): nói từ nào cũng tính đúng.
+   Từ so với từ, cụm so với cụm (vd "Tôi cũng vậy" = Me too / Same here). */
 const SYN = {};
 {
   const byVi = {};
-  WORDS.forEach((w) => (byVi[w[2]] = byVi[w[2]] || []).push(w[0].toLowerCase()));
+  WORDS.forEach((w, i) => { const k = (isPhrase(i) ? 'p:' : 'w:') + w[2]; (byVi[k] = byVi[k] || []).push(norm(w[0])); });
   for (const list of Object.values(byVi)) if (list.length > 1) for (const w of list) SYN[w] = list.filter((x) => x !== w);
+}
+
+/* Cụm từ khi nói: phải nghe ra đủ các từ của cụm, đúng thứ tự (nghe thừa tiếng ở đầu hoặc cuối vẫn được).
+   Viết tắt và viết đủ coi như nhau (I'm = I am, don't = do not); từ đồng âm máy hay nhầm (no/know, to/two) coi như nhau.
+   Không có "gần đúng": sai một từ là tính sai. */
+const CONTRACT = {
+  "i'm": 'i am', "don't": 'do not', "won't": 'will not', "it's": 'it is', "that's": 'that is', "what's": 'what is',
+  "let's": 'let us', "can't": 'can not', cannot: 'can not', "you're": 'you are', okay: 'ok',
+};
+const PHRASE_CANON = {};
+for (const g of [['to', 'two', 'too'], ['for', 'four'], ['no', 'know'], ['right', 'write'], ['by', 'buy', 'bye'], ['here', 'hear'],
+  ['new', 'knew'], ['meet', 'meat'], ['see', 'sea'], ['red', 'read'], ['one', 'won', '1']]) for (const w of g) PHRASE_CANON[w] = g[0];
+const phraseKey = (s) => norm(s).split(' ').map((t) => CONTRACT[t] || t).join(' ').split(' ').map((t) => PHRASE_CANON[t] || t).join(' ');
+const PHRASE_KEYS = new Set(PHRASES.map((p) => norm(p[0])));
+function matchPhrase(target, transcripts) {
+  const has = (heard, want) => ` ${heard} `.includes(` ${want} `) || heard.replace(/ /g, '') === want.replace(/ /g, '');
+  const tk = phraseKey(target), syns = (SYN[norm(target)] || []).map(phraseKey);
+  let syn = false;
+  for (const raw of transcripts) {
+    const n = phraseKey(raw); if (!n) continue;
+    if (has(n, tk)) return 'exact';
+    if (syns.some((s) => has(n, s))) syn = true;
+  }
+  return syn ? 'syn' : null;
 }
 
 /** Trả về 'exact' | 'near' | 'syn' | null */
 function matchAnswer(target, transcripts) {
   const t = norm(target);
+  if (PHRASE_KEYS.has(t)) return matchPhrase(target, transcripts);
   const variants = new Set([t, ...(ALIAS[t] || []).map(norm)]);
   const syns = new Set(SYN[t] || []);
   let near = false, syn = false;
@@ -399,7 +445,7 @@ function topbar(title, { back = 'home', right = '' } = {}) {
 function bindBack(root, target) { const b = $('[data-back]', root); if (b) b.onclick = typeof target === 'function' ? target : () => go(target || 'home'); }
 
 function levelBadge(lv, text) {
-  return `<div class="level-badge" style="background:linear-gradient(135deg,${lv.color[0]},${lv.color[1]})">${text ?? lv.n}</div>`;
+  return `<div class="level-badge" style="background:linear-gradient(135deg,${lv.color[0]},${lv.color[1]})">${text ?? (lv.phrase ? '💬' : lv.n)}</div>`;
 }
 
 function supportNotice() {
@@ -419,7 +465,7 @@ function supportNotice() {
     return `<div class="notice">${ICON.micOff}<div><b>Mic đang bị chặn hoặc không có mic.</b> Bấm biểu tượng ổ khóa cạnh thanh địa chỉ, cho phép Micro, rồi tải lại trang. Trong lúc đó bạn làm bài bằng cách gõ phím.</div></div>`;
   }
   if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-    return `<div class="notice info">${ICON.info}<div>Trên iPhone/iPad, nhận giọng nói của Safari còn chập chờn. Nếu máy không nghe được, vào <b>Cài đặt</b> chọn <b>Gõ phím</b>.</div></div>`;
+    return `<div class="notice info">${ICON.info}<div>Trên iPhone/iPad, nhận giọng nói của Safari còn chập chờn. Nếu mic báo lỗi, app sẽ chỉ cách bật lại và có nút <b>Thử lại mic</b>. Vẫn không được thì vào <b>Cài đặt</b> chọn <b>Gõ phím</b>.</div></div>`;
   }
   return '';
 }
@@ -428,14 +474,16 @@ const useMic = () => S.mode !== 'type' && !!getSR() && window.isSecureContext &&
 const modeKey = () => (S.mode === 'type' || !getSR() || !window.isSecureContext ? 'type' : 'voice');
 const MODE_NAME = { voice: 'Nói', type: 'Gõ phím' };
 const book = (m = modeKey()) => store.books[m];
-/* Nói: mỗi từ cùng một thời gian (mặc định 3 giây).
-   Gõ phím: theo độ dài từ, từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây, làm tròn lên
-   (cat 4s, family 5s, beautiful 7s, international 9s) */
-const answerSeconds = () => S.seconds;
-const typeSeconds = (en) => Math.ceil(3 + Math.max(0, en.length - 2) * 0.5);
+/* Nói: mỗi từ cùng một thời gian (mặc định 3 giây). Cụm từ: thêm 1 giây cho mỗi từ sau từ đầu
+   (vd 3 giây: Me too 4s, Don't be mad at me 7s).
+   Gõ phím: theo độ dài, 1-2 phím (I, go) 3 giây, mỗi phím thêm cộng 0,5 giây, làm tròn lên
+   (cat 4s, family 5s, beautiful 7s, international 9s). Cụm từ đếm chữ cái + dấu cách + dấu ', không đếm ? ! . , */
+const phraseWords = (en) => norm(en).split(' ').length;
+const answerSeconds = (i) => S.seconds + (isPhrase(i) ? phraseWords(WORDS[i][0]) - 1 : 0);
+const typeSeconds = (i) => Math.ceil(3 + Math.max(0, (isPhrase(i) ? norm(WORDS[i][0]).length : WORDS[i][0].length) - 2) * 0.5);
 /* Thời gian làm bài tối đa của một bài = tổng thời gian trả lời của các từ trong bài
    (vd 360 từ × 3 giây = 18 phút). Chỉ tính lúc người học trả lời, không tính lúc máy đọc nghĩa, phát âm. */
-const testLimitSec = (items, voice) => items.reduce((a, i) => a + (voice ? answerSeconds(WORDS[i][0]) : typeSeconds(WORDS[i][0])), 0);
+const testLimitSec = (items, voice) => items.reduce((a, i) => a + (voice ? answerSeconds(i) : typeSeconds(i)), 0);
 const fmtLimit = (sec) => (sec < 60 ? `${sec} giây` : `${Math.floor(sec / 60)} phút${sec % 60 ? ` ${sec % 60} giây` : ''}`);
 
 /* =========================================================
@@ -461,22 +509,22 @@ SCREENS.home = () => {
       <button class="mode-chip" id="btnMode" title="Đổi chế độ ở Cài đặt">Chế độ: <b>${MODE_NAME[mk]}</b> · đổi ở Cài đặt</button>
       <p>Bấm vào một cấp là vào kiểm tra luôn. Nhìn nghĩa tiếng Việt, ${mk === 'voice' ? `nói từ tiếng Anh trong ${S.seconds} giây` : 'gõ từ tiếng Anh, từ càng dài càng có thêm giây'}. Từ nào sai thì kiểm tra lại tới khi hết sai.</p>
       <div class="hero-stats">
-        <div class="hero-stat"><b>${doneLv}/${LEVELS.length}</b><span>cấp đã hoàn thành</span></div>
+        <div class="hero-stat"><b>${doneLv}/${LEVELS.length}</b><span>phần đã hoàn thành</span></div>
         <div class="hero-stat"><b>${B.reports.length}</b><span>lần hoàn thành</span></div>
         <div class="hero-stat"><b>${streakDays()}</b><span>ngày liên tiếp</span></div>
       </div>
     </div>
     ${notice ? `<div style="margin-top:14px">${notice}</div>` : ''}
-    <div class="section-title">${LEVELS.length} cấp độ · 1.923 từ</div>
+    <div class="section-title">${WORD_LEVELS.length} cấp độ · 1.923 từ</div>
     <div class="level-grid">
       ${LEVELS.map((lv) => {
         const run = B.runs[lv.n];
         const st = levelStatus(lv, run, B);
-        return `<button class="level-card" data-level="${lv.n}">
+        return `${lv.phrase ? `</div><div class="section-title">Cụm từ giao tiếp · ${lv.size} cụm</div><div class="level-grid">` : ''}<button class="level-card" data-level="${lv.n}">
           ${levelBadge(lv)}
           <div class="level-info">
-            <div class="level-name">Cấp ${lv.n} · ${esc(lv.name)}</div>
-            <div class="level-meta">${lv.size} từ · ${lv.mixed ? 'trộn ' : ''}bài ${lv.lessonFrom}-${lv.lessonTo}</div>
+            <div class="level-name">${esc(lv.title)}</div>
+            <div class="level-meta">${lv.phrase ? `${lv.size} cụm · ${esc(lv.fileRef)}` : `${lv.size} từ · ${lv.mixed ? 'trộn ' : ''}bài ${lv.lessonFrom}-${lv.lessonTo}`}</div>
             <div class="level-meta">${st.text}</div>
             ${run && run.first ? `<div class="bar"><i style="width:${pct(lv.size - run.pending.length, lv.size)}%"></i></div>` : ''}
           </div>
@@ -503,7 +551,7 @@ function levelStatus(lv, run, B) {
   const k = run.rounds.length;
   return {
     text: L ? `Đang kiểm tra lại lần ${L.round} dở, bấm để kiểm tra tiếp` : `Lần 1 đạt ${pct(run.first.c, run.first.n)}% · ${k ? `đã kiểm tra lại ${k} lần` : 'chưa kiểm tra lại'}`,
-    big: run.pending.length, small: 'từ còn sai',
+    big: run.pending.length, small: `${lv.unit} còn sai`,
   };
 }
 
@@ -570,7 +618,8 @@ async function startRound(n) {
     results: L.results.map(([i, ok, heard]) => ({ i, ok: !!ok, heard })),
     token: 0, paused: false, startedAt: L.startedAt, phase: 'idle', cancelTap: null,
     limitMs: L.limitMs, usedMs: L.usedMs, runFrom: null, timeUp: false,
-    title: `Cấp ${lv.n} · ${lv.name}`, sub: `${MODE_NAME[mode]} · ${L.kind === 'first' ? 'Lần 1 · cả cấp' : `Kiểm tra lại lần ${L.round}`}`,
+    title: lv.title, sub: `${MODE_NAME[mode]} · ${L.kind === 'first' ? `Lần 1 · cả ${lv.phrase ? `${lv.size} cụm` : 'cấp'}` : `Kiểm tra lại lần ${L.round}`}`,
+    phrase: !!lv.phrase, unit: lv.unit,
   };
   go('test');
 }
@@ -611,13 +660,13 @@ SCREENS.test = () => {
       <div class="q-status" id="tStatus"></div>
       <div class="q-heard" id="tHeard"></div>
       <form class="type-box hidden" id="tType" autocomplete="off">
-        <input id="tInput" type="text" inputmode="latin" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Gõ từ tiếng Anh..." aria-label="Gõ từ tiếng Anh">
+        <input id="tInput" type="text" inputmode="latin" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Gõ ${T.phrase ? 'cụm từ' : 'từ'} tiếng Anh..." aria-label="Gõ tiếng Anh">
         <button class="btn" type="submit">Kiểm tra</button>
       </form>
       <div class="reveal hidden" id="tReveal"></div>
     </div>
     <div class="test-actions single" id="tActions"></div>
-    <div class="kbd-hint" id="tKbd">Phím tắt: Space = tạm dừng/tiếp tục · Enter = từ tiếp theo</div>
+    <div class="kbd-hint" id="tKbd">Phím tắt: Space = tạm dừng/tiếp tục · Enter = ${T.unit} tiếp theo</div>
   </div>`;
   $('#tQuit').onclick = () => {
     pauseTest();
@@ -684,8 +733,51 @@ function animateRing(ms) {
 }
 function hintFor(en) {
   if (!S.hint) return '';
-  const rest = en.slice(1).replace(/[a-z]/gi, '_').split('').join(' ');
-  return `${esc(en[0])} ${rest}<small>(${en.length} chữ)</small>`;
+  const words = en.replace(/[?!.,]/g, '').trim().split(/\s+/);
+  const one = (w) => [w[0], ...w.slice(1).replace(/[a-z]/gi, '_')].map(esc).join(' ');
+  if (words.length > 1) return `${words.map((w) => `<span class="hw">${one(w)}</span>`).join(' · ')}<small>(${words.length} từ)</small>`;
+  return `${one(en)}<small>(${en.length} chữ)</small>`;
+}
+/* Tô đậm từ (hoặc cụm từ) trong câu ví dụ */
+function markInExample(w) {
+  const ex = esc(w.ex);
+  if (!isPhrase(w.i)) return ex.replace(new RegExp(`\\b(${w.en.replace(/[^a-z]/gi, '')}\\w*)`, 'i'), '<mark>$1</mark>');
+  const key = esc(w.en.replace(/[?!.,]+$/, ''));
+  const at = ex.toLowerCase().indexOf(key.toLowerCase());
+  return at < 0 ? ex : `${ex.slice(0, at)}<mark>${ex.slice(at, at + key.length)}</mark>${ex.slice(at + key.length)}`;
+}
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+/* Cách sửa khi mic lỗi, theo loại máy */
+function micFixHtml(err) {
+  if (err === 'network') return '<ul class="fix-list"><li>Nhận giọng nói cần Internet. Kiểm tra lại mạng rồi bấm <b>Thử lại mic</b>.</li></ul>';
+  if (isIOS) {
+    return `<ul class="fix-list">
+      <li>Mở <b>Cài đặt</b> &gt; <b>Safari</b> &gt; <b>Micrô</b>: chọn <b>Cho phép</b> (hoặc <b>Hỏi</b>).</li>
+      <li>Mở <b>Cài đặt</b> &gt; <b>Cài đặt chung</b> &gt; <b>Bàn phím</b>: bật <b>Đọc chính tả</b> (Safari cần mục này để nghe giọng nói).</li>
+      <li>Nếu máy có đặt giới hạn: <b>Cài đặt</b> &gt; <b>Thời gian sử dụng</b> &gt; <b>Giới hạn nội dung &amp; quyền riêng tư</b> &gt; <b>Ứng dụng được phép</b>: bật <b>Siri &amp; Đọc chính tả</b>.</li>
+      <li>Tắt hẳn Safari (vuốt lên đóng app) rồi mở lại, bấm <b>Thử lại mic</b>.</li>
+    </ul>`;
+  }
+  return `<ul class="fix-list">
+    <li>Bấm biểu tượng ổ khóa cạnh thanh địa chỉ, cho phép <b>Micro</b>, rồi bấm <b>Thử lại mic</b>.</li>
+    <li>Xem mic có cắm chưa, có app khác (Zalo, Meet...) đang dùng mic không.</li>
+  </ul>`;
+}
+/* Mic lỗi giữa bài: hiện cách sửa, cho chọn thử lại mic hoặc gõ phím câu này. Đồng hồ không chạy lúc này. */
+function micTrouble(err) {
+  return new Promise((resolve) => {
+    const rv = $('#tReveal');
+    rv.className = 'reveal bad';
+    rv.innerHTML = `<span class="verdict bad">${ICON.micOff}Mic lỗi</span>
+      <div class="small" style="margin-top:8px">Lỗi: ${esc(micErrorText(err))}.</div>${micFixHtml(err)}`;
+    $('#tStatus').textContent = 'Mic chưa chạy';
+    $('#tActions').className = 'test-actions';
+    $('#tActions').innerHTML = `<button class="btn ghost" id="tTypeNow">${ICON.keyboard}Gõ phím</button><button class="btn" id="tRetry">${ICON.redo}Thử lại mic</button>`;
+    const pick = (v) => { if (T) T.cancelTap = null; rv.classList.add('hidden'); $('#tActions').innerHTML = ''; resolve(v); };
+    $('#tRetry').onclick = () => pick('retry');
+    $('#tTypeNow').onclick = () => pick('type');
+    T.cancelTap = () => resolve('cancel');
+  });
 }
 
 async function runWord() {
@@ -700,7 +792,8 @@ async function runWord() {
   $('#tHeard').textContent = '';
   $('#tReveal').classList.add('hidden');
   $('#tActions').innerHTML = '';
-  const secs = answerSeconds(w.en);
+  const secs = answerSeconds(w.i);
+  const noun = T.phrase ? 'cụm từ' : 'từ';
   $('#tSec').textContent = secs + 's';
   setRing(1);
   $('#tMic').innerHTML = useMic() ? ICON.mic : ICON.micOff;
@@ -724,7 +817,7 @@ async function runWord() {
           onStart: (ms) => {
             if (!alive()) return;
             clockStart(); clearTimeout(windowEnd); windowEnd = setTimeout(clockStop, ms);
-            $('#tStatus').textContent = `Nói từ tiếng Anh! (${secs} giây)`; $('#tRing').classList.add('live'); animateRing(ms);
+            $('#tStatus').textContent = `Nói ${noun} tiếng Anh! (${secs} giây)`; $('#tRing').classList.add('live'); animateRing(ms);
           },
           onSound: () => { if (alive() && !$('#tHeard').textContent) $('#tHeard').innerHTML = '<span class="muted">Đang nghe...</span>'; },
           onHeard: (h) => { if (alive()) $('#tHeard').innerHTML = `Máy nghe: <b>${esc(h)}</b>`; },
@@ -741,27 +834,29 @@ async function runWord() {
     if (T) T.cancelTap = null;
     if (!alive()) return;
     if (res.error && !['no-start', 'no-speech', 'aborted', 'cancel'].includes(res.error)) {
-      toast('Mic lỗi: ' + micErrorText(res.error) + (micBlocked ? '. Chuyển sang gõ phím.' : ''), 4000);
-      if (micBlocked || res.error === 'unsupported') {
-        byVoice = false;
-        // chuyển sang gõ phím giữa bài: cộng thêm phần thời gian gõ còn thiếu cho các từ còn lại
-        if (T.limitMs) T.limitMs += (testLimitSec(T.items.slice(T.pos), false) - testLimitSec(T.items.slice(T.pos), true)) * 1000;
-      }
+      // mic lỗi: chỉ cách sửa, cho thử lại mic (vd sau khi bật lại quyền mic) hoặc gõ phím
+      const pick = res.error === 'unsupported' ? 'type' : await micTrouble(res.error);
+      if (!alive()) return;
+      if (pick === 'retry') { micBlocked = false; return runWord(); }
+      byVoice = false;
+      // chuyển sang gõ phím: cộng thêm phần thời gian gõ còn thiếu (mic hỏng hẳn thì tính cho các từ còn lại, không thì chỉ từ này)
+      const rest = micBlocked ? T.items.slice(T.pos) : [T.items[T.pos]];
+      if (T.limitMs) T.limitMs += (testLimitSec(rest, false) - testLimitSec(rest, true)) * 1000;
     }
     if (byVoice) { verdict = res.verdict; heard = res.heard; }
   }
   if (!byVoice) {
     // Không dùng được mic: gõ từ tiếng Anh, máy tự chấm
-    const ms = typeSeconds(w.en) * 1000;
+    const ms = typeSeconds(w.i) * 1000;
     $('#tMic').innerHTML = ICON.keyboard;
-    $('#tStatus').textContent = 'Gõ từ tiếng Anh rồi bấm Enter';
+    $('#tStatus').textContent = `Gõ ${noun} tiếng Anh rồi bấm Enter`;
     $('#tHeard').textContent = '';
     const box = $('#tType'), inp = $('#tInput');
     box.classList.remove('hidden'); inp.value = ''; inp.disabled = false;
     try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); }
     $('#tRing').classList.add('live');
     animateRing(ms);
-    $('#tStatus').textContent = `Gõ từ tiếng Anh rồi bấm Enter (${Math.round(ms / 1000)} giây)`;
+    $('#tStatus').textContent = `Gõ ${noun} tiếng Anh rồi bấm Enter (${Math.round(ms / 1000)} giây)`;
     clockStart();
     const typed = await new Promise((resolve) => {
       const t = setTimeout(() => resolve(inp.value), ms);
@@ -774,16 +869,16 @@ async function runWord() {
     if (!alive()) return;
     box.classList.add('hidden');
     heard = (typed || '').trim();
-    const v = heard ? matchAnswer(w.en, [heard]) : null;
     // khi gõ: phải gõ đúng hết từng chữ cái, sai 1 chữ cũng tính sai (không có "gần đúng");
-    // đồng âm (two/to) không tính; gõ đúng chính tả từ trùng nghĩa (say/speak) vẫn tính đúng
+    // đồng âm (two/to) không tính; gõ đúng chính tả từ trùng nghĩa (say/speak, Me too/Same here) vẫn tính đúng.
+    // Cụm từ: bắt buộc gõ dấu ' (don't), không cần gõ ? ! . , và không phân biệt hoa/thường
     const nh = norm(heard), nt = norm(w.en);
-    verdict = !heard ? null : nh === nt ? 'exact' : v === 'syn' ? 'syn' : null;
+    verdict = !heard ? null : nh === nt ? 'exact' : (SYN[nt] || []).includes(nh) ? 'syn' : null;
   }
 
   T.phase = 'reveal';
   const ok = !!verdict;
-  const exEsc = esc(w.ex).replace(new RegExp(`\\b(${w.en.replace(/[^a-z]/gi, '')}\\w*)`, 'i'), '<mark>$1</mark>');
+  const exEsc = markInExample(w);
   const rv = $('#tReveal');
   rv.className = 'reveal' + (ok ? ' ok' : ' bad');
   rv.innerHTML = `
@@ -801,10 +896,10 @@ async function runWord() {
   $('#tMic').innerHTML = ok ? ICON.check : ICON.cross;
   $('#tSec').textContent = '0s';
   $('#tStatus').textContent = ok
-    ? ({ exact: 'Tuyệt!', near: byVoice ? 'Gần đúng, nghe lại cho chuẩn nhé' : 'Gần đúng, xem lại chính tả nhé', syn: `Đúng nghĩa! Từ cần tìm ở đây là "${w.en}"` })[verdict]
+    ? ({ exact: 'Tuyệt!', near: byVoice ? 'Gần đúng, nghe lại cho chuẩn nhé' : 'Gần đúng, xem lại chính tả nhé', syn: `Đúng nghĩa! ${T.phrase ? 'Cụm' : 'Từ'} cần tìm ở đây là "${w.en}"` })[verdict]
     : (heard ? 'Chưa đúng rồi' : 'Hết giờ');
   const what = byVoice ? 'Máy nghe' : 'Bạn gõ';
-  const heardHtml = !byVoice && !ok ? typoHtml(heard, w.en) : esc(heard);
+  const heardHtml = !byVoice && !ok ? typoHtml(heard, typeTarget(w.en)) : esc(heard);
   $('#tHeard').innerHTML = heard ? `${what}: <b>${heardHtml}</b> · Đáp án: <b>${esc(w.en)}</b>` : (byVoice ? 'Máy chưa nghe thấy gì' : 'Bạn chưa gõ gì');
 
   const record = (isOk) => {
@@ -815,8 +910,8 @@ async function runWord() {
 
   record(ok);
   $('#tActions').className = 'test-actions single';
-  $('#tActions').innerHTML = `<button class="btn" id="tNext">${T.pos + 1 >= T.items.length ? 'Xem kết quả' : 'Từ tiếp theo'}${ICON.next}</button>`;
-  $('#tKbd').textContent = 'Phím tắt: Space = tạm dừng/tiếp tục · Enter = từ tiếp theo';
+  $('#tActions').innerHTML = `<button class="btn" id="tNext">${T.pos + 1 >= T.items.length ? 'Xem kết quả' : `${T.phrase ? 'Cụm' : 'Từ'} tiếp theo`}${ICON.next}</button>`;
+  $('#tKbd').textContent = `Phím tắt: Space = tạm dừng/tiếp tục · Enter = ${T.unit} tiếp theo`;
   $('#tNext').onclick = () => { if (!alive()) return; T.pos++; runWord(); };
   await speakEn(w.en);
   if (!alive()) return;
@@ -897,27 +992,27 @@ SCREENS.result = (n) => {
   let action;
   if (L) {
     const done = L.results.length, total = L.items.length;
-    action = `<div class="notice info" style="margin-top:14px">${ICON.info}<div>Bạn đang kiểm tra dở <b>${L.kind === 'first' ? 'lần 1' : `kiểm tra lại lần ${L.round}`}</b>: đã làm ${done}/${total} từ.</div></div>
-      <button class="btn block" id="rGo" style="margin-top:10px">${ICON.next}Kiểm tra tiếp (còn ${total - done} từ)</button>`;
+    action = `<div class="notice info" style="margin-top:14px">${ICON.info}<div>Bạn đang kiểm tra dở <b>${L.kind === 'first' ? 'lần 1' : `kiểm tra lại lần ${L.round}`}</b>: đã làm ${done}/${total} ${lv.unit}.</div></div>
+      <button class="btn block" id="rGo" style="margin-top:10px">${ICON.next}Kiểm tra tiếp (còn ${total - done} ${lv.unit})</button>`;
   } else {
-    action = `${last ? `<div class="notice ${last.c === last.n ? 'info' : ''}" style="margin-top:14px">${ICON.redo}<div><b>Kiểm tra lại lần ${run.rounds.length}:</b> đúng ${last.c}/${last.n}, còn ${last.n - last.c} từ sai${last.left ? ` (có ${last.left} từ hết giờ chưa kịp làm)` : ''}.</div></div>` : ''}
-      <button class="btn block" id="rGo" style="margin-top:12px">${ICON.redo}Kiểm tra lại ${run.pending.length} từ sai</button>
+    action = `${last ? `<div class="notice ${last.c === last.n ? 'info' : ''}" style="margin-top:14px">${ICON.redo}<div><b>Kiểm tra lại lần ${run.rounds.length}:</b> đúng ${last.c}/${last.n}, còn ${last.n - last.c} ${lv.unit} sai${last.left ? ` (có ${last.left} ${lv.unit} hết giờ chưa kịp làm)` : ''}.</div></div>` : ''}
+      <button class="btn block" id="rGo" style="margin-top:12px">${ICON.redo}Kiểm tra lại ${run.pending.length} ${lv.unit} sai</button>
       <div class="small muted center" style="margin-top:6px">Kiểm tra lại lần ${nextRound} · làm bài tối đa ${fmtLimit(testLimitSec(run.pending, useMic()))}</div>`;
   }
   app.innerHTML = `<div>
-    ${topbar(`Cấp ${lv.n}`)}
+    ${topbar(lv.tag)}
     ${F ? `<div class="card sum-hero">
       <div class="section-title" style="margin:0 0 6px">Báo cáo lần 1</div>
       ${ringSvg(pct(F.c, F.n))}
-      <div class="muted small">Cấp ${lv.n} · ${esc(lv.name)} · ${MODE_NAME[modeKey()]} · ${fmtDate(F.t)}</div>
-      ${F.left ? `<div class="small" style="margin-top:6px;color:var(--bad);font-weight:600">Hết giờ, ${F.left} từ chưa kịp làm, tính là sai</div>` : ''}
+      <div class="muted small">${esc(lv.title)} · ${MODE_NAME[modeKey()]} · ${fmtDate(F.t)}</div>
+      ${F.left ? `<div class="small" style="margin-top:6px;color:var(--bad);font-weight:600">Hết giờ, ${F.left} ${lv.unit} chưa kịp làm, tính là sai</div>` : ''}
       ${firstStats(F.c, F.n)}
-    </div>` : `<div class="card"><div class="level-name">Cấp ${lv.n} · ${esc(lv.name)}</div><div class="level-meta">${lv.size} từ · ${esc(lv.fileRef)}</div></div>`}
+    </div>` : `<div class="card"><div class="level-name">${esc(lv.title)}</div><div class="level-meta">${lv.size} ${lv.unit} · ${esc(lv.fileRef)}</div></div>`}
     ${action}
-    ${!L && run.wrong.length ? `<div class="section-title">${run.wrong.length} từ còn sai</div>
+    ${!L && run.wrong.length ? `<div class="section-title">${run.wrong.length} ${lv.unit} còn sai</div>
       <div class="word-list">${run.wrong.map(([i, heard, left]) => wordRow(i, { heard, left: !!left, showHeard: true, typed: modeKey() === 'type' })).join('')}</div>` : ''}
     ${run.rounds.length ? `<div class="section-title">Các lần kiểm tra lại</div>
-      <div class="word-list">${run.rounds.map((r, k) => `<div class="hist-row"><div class="h-main"><div class="h-title">Kiểm tra lại lần ${k + 1}</div><div class="h-sub">${fmtDate(r.t)} · đúng ${r.c}/${r.n} · còn ${r.n - r.c} từ sai</div></div><span class="pill ${grade(pct(r.c, r.n))}">${pct(r.c, r.n)}%</span></div>`).join('')}</div>` : ''}
+      <div class="word-list">${run.rounds.map((r, k) => `<div class="hist-row"><div class="h-main"><div class="h-title">Kiểm tra lại lần ${k + 1}</div><div class="h-sub">${fmtDate(r.t)} · đúng ${r.c}/${r.n} · còn ${r.n - r.c} ${lv.unit} sai</div></div><span class="pill ${grade(pct(r.c, r.n))}">${pct(r.c, r.n)}%</span></div>`).join('')}</div>` : ''}
     <div class="btn-row" style="margin-top:18px">
       <button class="btn ghost" id="rHome">Trang chủ</button>
       <button class="btn ghost" id="rReport">${ICON.chart}Báo cáo tổng hợp</button>
@@ -933,17 +1028,18 @@ SCREENS.result = (n) => {
 SCREENS.done = (id) => {
   const r = book().reports.find((x) => x.id === id);
   if (!r) return go('home');
+  const lv = LEVELS[r.lv - 1];
   app.innerHTML = `<div>
-    ${topbar('Hoàn thành cấp')}
+    ${topbar(lv.phrase ? 'Hoàn thành' : 'Hoàn thành cấp')}
     <div class="card sum-hero">
       <div style="font-size:46px;line-height:1">🎉</div>
-      <h2 class="sum-title" style="margin-top:8px">Hoàn thành cấp ${r.lv}!</h2>
+      <h2 class="sum-title" style="margin-top:8px">Hoàn thành ${lv.phrase ? `${lv.size} cụm từ` : `cấp ${r.lv}`}!</h2>
       <div class="muted small">${esc(r.name)} · ${MODE_NAME[modeKey()]} · ${fmtDate(r.t)}</div>
       <div style="margin-top:10px;font-weight:700">${r.retakes ? `Kiểm tra lại ${r.retakes} lần thì hết từ sai` : 'Đúng hết ngay lần 1, không phải kiểm tra lại'}</div>
       <div class="section-title" style="margin:18px 0 0">Báo cáo lần 1</div>
       ${firstStats(r.first.c, r.first.n)}
     </div>
-    <p class="small muted center" style="margin:12px 6px">Đã lưu vào Báo cáo tổng hợp. Danh sách từ sai của cấp này đã làm mới, lần sau bấm vào cấp sẽ kiểm tra lại từ đầu.</p>
+    <p class="small muted center" style="margin:12px 6px">Đã lưu vào Báo cáo tổng hợp. Danh sách ${lv.unit} sai đã làm mới, lần sau bấm vào ${lv.phrase ? 'phần cụm từ' : 'cấp'} sẽ kiểm tra lại từ đầu.</p>
     <div class="btn-row">
       <button class="btn ghost" id="dHome">Trang chủ</button>
       <button class="btn" id="dReport">${ICON.chart}Báo cáo tổng hợp</button>
@@ -960,7 +1056,7 @@ function wordRow(i, { heard = '', showHeard = false, left = false, typed = false
     <div class="w-main">
       <div class="w-en">${esc(w.en)}<span class="ipa">${esc(w.ipa)}</span></div>
       <div class="w-vi">${esc(w.vi)}</div>
-      ${showHeard ? `<div class="w-heard">${left ? '<span class="muted">Hết giờ, chưa kịp làm</span>' : heard ? (typed ? `Bạn gõ: <b>${typoHtml(heard, w.en)}</b>` : `Trả lời: <span class="h">${esc(heard)}</span>`) : '<span class="muted">Không nghe thấy / hết giờ</span>'}</div>` : ''}
+      ${showHeard ? `<div class="w-heard">${left ? '<span class="muted">Hết giờ, chưa kịp làm</span>' : heard ? (typed ? `Bạn gõ: <b>${typoHtml(heard, typeTarget(w.en))}</b>` : `Trả lời: <span class="h">${esc(heard)}</span>`) : '<span class="muted">Không nghe thấy / hết giờ</span>'}</div>` : ''}
     </div>
     <button class="icon-btn" data-say="${i}" aria-label="Nghe ${esc(w.en)}">${ICON.speaker}</button>
   </div>`;
@@ -976,7 +1072,7 @@ SCREENS.report = (mode = modeKey()) => {
   const levelBlock = (lv) => {
     const list = R.filter((r) => r.lv === lv.n);
     return `<div class="card" style="margin-bottom:12px">
-      <div class="row">${levelBadge(lv)}<div class="grow"><div class="level-name">Cấp ${lv.n} · ${esc(lv.name)}</div>
+      <div class="row">${levelBadge(lv)}<div class="grow"><div class="level-name">${esc(lv.title)}</div>
         <div class="level-meta">${list.length ? `Đã hoàn thành ${list.length} lần` : 'Chưa hoàn thành'}</div></div></div>
       ${list.map((r, k) => { const p = pct(r.first.c, r.first.n); return `
         <div style="margin-top:14px">
@@ -1074,10 +1170,11 @@ SCREENS.settings = () => {
     out.textContent = 'Hãy nói "hello"...';
     const r = await listenFor('hello', 4000, { onHeard: (h) => (out.innerHTML = `Máy nghe: <b>${esc(h)}</b>`) });
     if (!out.isConnected) return;
-    if (r.error) out.innerHTML = `<span style="color:var(--bad)">Lỗi mic: ${esc(micErrorText(r.error))}</span>`;
+    if (r.error) out.innerHTML = `<span style="color:var(--bad)">Lỗi mic: ${esc(micErrorText(r.error))}</span>${micFixHtml(r.error)}<div class="muted">Sửa xong bấm <b>Thử mic</b> lần nữa.</div>`;
     else if (r.verdict) out.innerHTML = `<span style="color:var(--ok);font-weight:700">Mic hoạt động tốt!</span> Máy nghe: <b>${esc(r.heard)}</b>`;
     else out.innerHTML = r.heard ? `Máy nghe: <b>${esc(r.heard)}</b> (mic chạy được)` : 'Không nghe thấy gì. Kiểm tra lại mic.';
-    if (r.error) setTimeout(() => go('settings'), 2500);
+    if (!r.error) micBlocked = false;
+    $('.status-list').innerHTML = deviceStatus(vVi, vEn);
   };
 };
 function micErrorText(e) {
@@ -1102,6 +1199,7 @@ SCREENS.help = () => {
       <h3 style="margin-top:0">Cách học</h3>
       <ul>
         <li>1.923 từ chia thành <b>8 cấp</b>. Cấp 1 Nền tảng (271 từ, bài 1-27), cấp 2 Đời sống (273 từ, bài 28-54). Cấp 3, 4, 5 là Thông dụng, mỗi cấp 240 từ trộn lẫn từ bài 55-126. Cấp 6, 7, 8 là Mở rộng (220, 220, 219 từ) trộn lẫn từ bài 127-192.</li>
+        <li>Phần <b>100 cụm từ giao tiếp</b> (Well done, Take care...) nằm dưới 8 cấp: kiểm tra liền <b>1 lượt 100 cụm</b>, không chia bài. Chế độ Nói: thêm 1 giây cho mỗi từ sau từ đầu (vd Me too ${S.seconds + 1} giây, Don't be mad at me ${S.seconds + 4} giây). Chế độ Gõ phím: 1-2 phím 3 giây, mỗi phím thêm cộng 0,5 giây (đếm chữ cái, dấu cách và dấu ').</li>
         <li>Có <b>2 chế độ</b>: <b>Nói</b> và <b>Gõ phím</b>, chọn ở Cài đặt, mục "Trả lời bằng". Mỗi chế độ có tiến độ, từ sai và báo cáo riêng. Đang nói dở cấp 1 mà chuyển sang gõ phím thì cấp 1 bên gõ bắt đầu từ từ đầu (nếu bên gõ chưa làm), quay lại chế độ Nói vẫn làm tiếp chỗ đang dở.</li>
         <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Chế độ Nói: thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 240 từ = ${fmtLimit(240 * S.seconds)}). Chế độ Gõ phím: cộng thời gian gõ của từng từ. Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
         <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ nào cũng vậy. Quá giờ tính là sai. Máy tự chấm. Chế độ Gõ phím thì thời gian theo độ dài từ: từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây).</li>
@@ -1113,7 +1211,7 @@ SCREENS.help = () => {
       <h3>Trình duyệt nên dùng</h3>
       <ul>
         <li><b>Chrome</b> hoặc <b>Edge</b> trên Android, Windows, Mac: chạy tốt nhất.</li>
-        <li><b>Safari trên iPhone/iPad</b>: nhận giọng nói còn hạn chế, có lúc không nghe. Khi đó chọn trả lời bằng <b>Gõ phím</b>.</li>
+        <li><b>Safari trên iPhone/iPad</b>: nhận giọng nói còn hạn chế. Nếu mic báo lỗi: vào Cài đặt &gt; Safari &gt; Micrô chọn Cho phép; Cài đặt &gt; Cài đặt chung &gt; Bàn phím bật Đọc chính tả; tắt hẳn Safari rồi mở lại và bấm <b>Thử lại mic</b>. Vẫn không được thì chọn trả lời bằng <b>Gõ phím</b>.</li>
         <li>Firefox: chưa có nhận giọng nói, chỉ trả lời bằng gõ phím được.</li>
         <li>Mic chỉ hoạt động khi trang mở qua <b>https://</b>. Nhận giọng nói của Chrome cần <b>Internet</b>.</li>
         <li>Lần đầu, trình duyệt sẽ hỏi quyền dùng Micro: chọn <b>Cho phép</b>.</li>
@@ -1124,6 +1222,8 @@ SCREENS.help = () => {
         <li>Chấp nhận từ đồng âm máy hay nhầm (to/two/too, right/write, four/4...).</li>
         <li>Có 21 cặp từ trùng nghĩa (vd "nói" = say/speak). Nói từ còn lại cũng tính đúng, máy sẽ chỉ ra từ cần tìm.</li>
         <li>Chế độ Nói: từ dài nghe lệch 1-2 chữ cái, hoặc thêm/bớt "s", "ed" được tính <b>Gần đúng</b> (vẫn tính đúng) và bạn nên nghe lại cho chuẩn.</li>
+        <li>Cụm từ khi nói: máy phải nghe ra <b>đủ các từ, đúng thứ tự</b>, sai một từ là tính sai. Nói tắt hay nói đủ đều được (I'm = I am, don't = do not).</li>
+        <li>Cụm từ khi gõ: phải gõ đủ dấu <b>'</b> (don't, I'm), không cần gõ dấu ? ! . ,</li>
         <li>Chế độ Gõ phím: phải gõ <b>đúng hết từng chữ cái</b>, sai 1 chữ cũng tính sai. Chữ cái gõ sai được <b style="color:var(--bad)">tô đỏ</b>, chỗ thiếu chữ hiện dấu "_" đỏ.</li>
       </ul>
       <h3>Cài lên điện thoại</h3>

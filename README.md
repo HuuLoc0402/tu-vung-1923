@@ -16,6 +16,15 @@ App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa t
 
 Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định rồi chia đều, nên máy nào cũng ra cùng một bộ từ; 3 cấp Thông dụng gộp lại đủ 720 từ, 3 cấp Mở rộng đủ 659 từ, không trùng.
 
+## 100 cụm từ giao tiếp (từ bản 2.2.0)
+
+- Dữ liệu: `phrases.js`, sinh từ `tai-lieu/100 cụm từ tiếng Anh thông dụng.xlsx` trong vault bằng `tools/build_phrases.py`. Nghĩa tiếng Việt theo bản sếp duyệt (`raw/100cautienganh_moi_1.xlsx`).
+- Trong app là một phần riêng nằm dưới 8 cấp, kiểm tra liền **1 lượt 100 cụm**, không chia bài. Cụm từ được nối vào cuối `WORDS` (chỉ số 1923-2022) nên tiến độ cũ không đổi.
+- Nói: thời gian nói mỗi từ (mặc định 3 giây) + 1 giây cho mỗi từ sau từ đầu (Me too 4 giây, Don't be mad at me 7 giây). Cả lượt tối đa 8 phút 21 giây (mức 3 giây).
+- Gõ phím: 1-2 phím 3 giây, mỗi phím thêm cộng 0,5 giây, làm tròn lên; đếm chữ cái + dấu cách + dấu ' (As soon as possible 12 giây). Cả lượt tối đa 15 phút 1 giây.
+- Chấm khi nói: phải nghe ra đủ các từ, đúng thứ tự (nghe thừa tiếng ở đầu, cuối vẫn được). Viết tắt và viết đủ như nhau (I'm = I am), đồng âm như nhau (no/know). Không có "gần đúng".
+- Chấm khi gõ: đúng hết từng chữ cái, bắt buộc gõ dấu ', không cần gõ ? ! . , và không phân biệt hoa/thường. Me too / Same here cùng nghĩa "Tôi cũng vậy" nên gõ cụm nào cũng tính đúng.
+
 ## Cách kiểm tra
 
 - Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp (thứ tự từ xáo mỗi lần).
@@ -25,11 +34,13 @@ Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định r
 - Kiểm tra xong lần đầu có **Báo cáo lần 1** (đúng/sai trên tổng số câu, đạt %). Bấm "Kiểm tra lại ... từ sai" để kiểm tra lại những từ còn sai, lặp tới khi hết sai là hoàn thành cấp.
 - Hoàn thành cấp: ghi một dòng vào **Báo cáo tổng hợp** của chế độ đang dùng (kết quả lần 1 + số lần kiểm tra lại), rồi xóa danh sách từ sai của cấp đó. Trong báo cáo có nút "Chế độ Nói" / "Chế độ Gõ phím" để xem từng bên.
 - Bài đang kiểm tra được lưu sau mỗi từ; tắt app mở lại vẫn kiểm tra tiếp được.
+- Mic lỗi giữa bài (vd iPhone báo `service-not-allowed`): app hiện cách sửa theo loại máy (iPhone: cho phép Micrô của Safari, bật Đọc chính tả) và 2 nút **Thử lại mic** / **Gõ phím**. Lúc này đồng hồ không chạy. Thử mic ở Cài đặt cũng hiện cách sửa khi lỗi.
 
 ## Các file
 
 - `index.html`, `styles.css`, `app.js`: giao diện và logic.
 - `words.js`: dữ liệu 1.923 từ (từ, phiên âm, nghĩa, câu ví dụ). Sinh từ file Excel bằng `tools/dump_xlsx.py` + `tools/build_words.py`.
+- `phrases.js`: 100 cụm từ giao tiếp, sinh bằng `tools/build_phrases.py`.
 - `manifest.webmanifest`, `sw.js`, `icons/`: phần PWA (cài lên máy, mở được khi mất mạng).
 
 ## Chạy thử trên máy
