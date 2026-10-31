@@ -20,7 +20,7 @@ Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định r
 
 - Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp (thứ tự từ xáo mỗi lần).
 - Hai chế độ, chọn ở Cài đặt (mục "Trả lời bằng"): **Nói** và **Gõ phím**. Mỗi chế độ có tiến độ, từ sai, báo cáo lần 1 và báo cáo tổng hợp riêng (`books.voice` và `books.type` trong localStorage). Đổi chế độ không mất tiến độ bên kia; bên chưa làm thì bắt đầu từ từ đầu.
-- Nói: mỗi từ 3 giây. Gõ phím: theo độ dài từ, từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây, làm tròn lên (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây). Thời gian tối đa cả lượt = cộng thời gian từng từ.
+- Nói: mỗi từ 3 giây. Gõ phím: theo độ dài từ, từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây, làm tròn lên (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây). Thời gian tối đa cả lượt = cộng thời gian từng từ. Gõ phải đúng hết từng chữ cái (sai 1 chữ là sai), chữ cái gõ sai được tô đỏ.
 - Thời gian làm bài tối đa = tổng thời gian trả lời các từ. Đồng hồ chỉ chạy lúc trả lời, không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.
 - Kiểm tra xong lần đầu có **Báo cáo lần 1** (đúng/sai trên tổng số câu, đạt %). Bấm "Kiểm tra lại ... từ sai" để kiểm tra lại những từ còn sai, lặp tới khi hết sai là hoàn thành cấp.
 - Hoàn thành cấp: ghi một dòng vào **Báo cáo tổng hợp** của chế độ đang dùng (kết quả lần 1 + số lần kiểm tra lại), rồi xóa danh sách từ sai của cấp đó. Trong báo cáo có nút "Chế độ Nói" / "Chế độ Gõ phím" để xem từng bên.

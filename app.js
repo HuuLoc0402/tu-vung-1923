@@ -6,7 +6,7 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.1.1';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -226,6 +226,23 @@ function lev(a, b) {
     prev = cur;
   }
   return prev[n];
+}
+/* Tô đỏ chữ cái gõ sai: so từng chữ với đáp án (không phân biệt hoa/thường).
+   Chữ gõ sai hoặc thừa tô đỏ, chỗ thiếu chữ hiện "_" đỏ. vd gõ "tham" cho "than": chữ m đỏ. */
+function typoHtml(typed, target) {
+  const a = String(typed).trim(), b = String(target), A = a.toLowerCase(), B = b.toLowerCase();
+  const m = A.length, n = B.length;
+  const d = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => (i ? (j ? 0 : i) : j)));
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (A[i - 1] === B[j - 1] ? 0 : 1));
+  const out = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && A[i - 1] === B[j - 1] && d[i][j] === d[i - 1][j - 1]) { out.push(esc(a[i - 1])); i--; j--; }
+    else if (i > 0 && j > 0 && d[i][j] === d[i - 1][j - 1] + 1) { out.push(`<span class="typo">${esc(a[i - 1])}</span>`); i--; j--; }
+    else if (i > 0 && d[i][j] === d[i - 1][j] + 1) { out.push(`<span class="typo">${esc(a[i - 1])}</span>`); i--; }
+    else { out.push('<span class="typo miss">_</span>'); j--; }
+  }
+  return out.reverse().join('');
 }
 const VERDICT_TEXT = { exact: 'Chính xác', near: 'Gần đúng', syn: 'Đúng nghĩa' };
 
@@ -758,9 +775,10 @@ async function runWord() {
     box.classList.add('hidden');
     heard = (typed || '').trim();
     const v = heard ? matchAnswer(w.en, [heard]) : null;
-    // khi gõ: chỉ chấp nhận đúng từ, sai 1 chữ cái là "gần đúng"; đồng âm (two/to) không tính
+    // khi gõ: phải gõ đúng hết từng chữ cái, sai 1 chữ cũng tính sai (không có "gần đúng");
+    // đồng âm (two/to) không tính; gõ đúng chính tả từ trùng nghĩa (say/speak) vẫn tính đúng
     const nh = norm(heard), nt = norm(w.en);
-    verdict = !heard ? null : nh === nt ? 'exact' : v === 'syn' ? 'syn' : (nt.length >= 4 && lev(nh, nt) <= 1) ? 'near' : null;
+    verdict = !heard ? null : nh === nt ? 'exact' : v === 'syn' ? 'syn' : null;
   }
 
   T.phase = 'reveal';
@@ -786,7 +804,8 @@ async function runWord() {
     ? ({ exact: 'Tuyệt!', near: byVoice ? 'Gần đúng, nghe lại cho chuẩn nhé' : 'Gần đúng, xem lại chính tả nhé', syn: `Đúng nghĩa! Từ cần tìm ở đây là "${w.en}"` })[verdict]
     : (heard ? 'Chưa đúng rồi' : 'Hết giờ');
   const what = byVoice ? 'Máy nghe' : 'Bạn gõ';
-  $('#tHeard').innerHTML = heard ? `${what}: <b>${esc(heard)}</b> · Đáp án: <b>${esc(w.en)}</b>` : (byVoice ? 'Máy chưa nghe thấy gì' : 'Bạn chưa gõ gì');
+  const heardHtml = !byVoice && !ok ? typoHtml(heard, w.en) : esc(heard);
+  $('#tHeard').innerHTML = heard ? `${what}: <b>${heardHtml}</b> · Đáp án: <b>${esc(w.en)}</b>` : (byVoice ? 'Máy chưa nghe thấy gì' : 'Bạn chưa gõ gì');
 
   const record = (isOk) => {
     T.results.push({ i: w.i, ok: isOk, near: verdict === 'near', heard, typed: !byVoice });
@@ -896,7 +915,7 @@ SCREENS.result = (n) => {
     </div>` : `<div class="card"><div class="level-name">Cấp ${lv.n} · ${esc(lv.name)}</div><div class="level-meta">${lv.size} từ · ${esc(lv.fileRef)}</div></div>`}
     ${action}
     ${!L && run.wrong.length ? `<div class="section-title">${run.wrong.length} từ còn sai</div>
-      <div class="word-list">${run.wrong.map(([i, heard, left]) => wordRow(i, { heard, left: !!left, showHeard: true })).join('')}</div>` : ''}
+      <div class="word-list">${run.wrong.map(([i, heard, left]) => wordRow(i, { heard, left: !!left, showHeard: true, typed: modeKey() === 'type' })).join('')}</div>` : ''}
     ${run.rounds.length ? `<div class="section-title">Các lần kiểm tra lại</div>
       <div class="word-list">${run.rounds.map((r, k) => `<div class="hist-row"><div class="h-main"><div class="h-title">Kiểm tra lại lần ${k + 1}</div><div class="h-sub">${fmtDate(r.t)} · đúng ${r.c}/${r.n} · còn ${r.n - r.c} từ sai</div></div><span class="pill ${grade(pct(r.c, r.n))}">${pct(r.c, r.n)}%</span></div>`).join('')}</div>` : ''}
     <div class="btn-row" style="margin-top:18px">
@@ -935,13 +954,13 @@ SCREENS.done = (id) => {
   $('#dReport').onclick = () => go('report');
 };
 
-function wordRow(i, { heard = '', showHeard = false, left = false } = {}) {
+function wordRow(i, { heard = '', showHeard = false, left = false, typed = false } = {}) {
   const w = W(i);
   return `<div class="word-row">
     <div class="w-main">
       <div class="w-en">${esc(w.en)}<span class="ipa">${esc(w.ipa)}</span></div>
       <div class="w-vi">${esc(w.vi)}</div>
-      ${showHeard ? `<div class="w-heard">${left ? '<span class="muted">Hết giờ, chưa kịp làm</span>' : heard ? `Trả lời: <span class="h">${esc(heard)}</span>` : '<span class="muted">Không nghe thấy / hết giờ</span>'}</div>` : ''}
+      ${showHeard ? `<div class="w-heard">${left ? '<span class="muted">Hết giờ, chưa kịp làm</span>' : heard ? (typed ? `Bạn gõ: <b>${typoHtml(heard, w.en)}</b>` : `Trả lời: <span class="h">${esc(heard)}</span>`) : '<span class="muted">Không nghe thấy / hết giờ</span>'}</div>` : ''}
     </div>
     <button class="icon-btn" data-say="${i}" aria-label="Nghe ${esc(w.en)}">${ICON.speaker}</button>
   </div>`;
@@ -1104,7 +1123,8 @@ SCREENS.help = () => {
         <li>Không phân biệt hoa/thường, bỏ qua dấu câu.</li>
         <li>Chấp nhận từ đồng âm máy hay nhầm (to/two/too, right/write, four/4...).</li>
         <li>Có 21 cặp từ trùng nghĩa (vd "nói" = say/speak). Nói từ còn lại cũng tính đúng, máy sẽ chỉ ra từ cần tìm.</li>
-        <li>Từ dài nghe lệch 1-2 chữ cái, hoặc thêm/bớt "s", "ed" được tính <b>Gần đúng</b> (vẫn tính đúng) và bạn nên nghe lại cho chuẩn.</li>
+        <li>Chế độ Nói: từ dài nghe lệch 1-2 chữ cái, hoặc thêm/bớt "s", "ed" được tính <b>Gần đúng</b> (vẫn tính đúng) và bạn nên nghe lại cho chuẩn.</li>
+        <li>Chế độ Gõ phím: phải gõ <b>đúng hết từng chữ cái</b>, sai 1 chữ cũng tính sai. Chữ cái gõ sai được <b style="color:var(--bad)">tô đỏ</b>, chỗ thiếu chữ hiện dấu "_" đỏ.</li>
       </ul>
       <h3>Cài lên điện thoại</h3>
       <ul>
