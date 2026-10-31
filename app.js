@@ -7,7 +7,7 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.2.1';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -183,6 +183,12 @@ const Voice = {
     return vs.find(good) || vs[0] || this.voices.find((v) => v.lang && v.lang.toLowerCase().startsWith(L.slice(0, 2))) || null;
   },
   has(lang) { return !!this.pick(lang); },
+  /* iPhone/iPad (và một số máy Android) chỉ cho máy đọc khi lần đọc đầu nằm ngay trong cú bấm của người dùng.
+     Gọi hàm này ngay lúc bấm vào kiểm tra (trước mọi chờ đợi) để các lần đọc nghĩa sau tự chạy, không phải bấm loa. */
+  unlock() {
+    if (!hasTTS || this.unlocked) return;
+    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); this.unlocked = true; } catch (e) { /* bỏ qua */ }
+  },
   speak(text, lang, rate = 1) {
     return new Promise((resolve) => {
       if (!hasTTS || !text) return resolve(false);
@@ -596,6 +602,7 @@ function bindQuickToggles(root) {
    Bài đang làm được lưu sau mỗi từ, tắt app mở lại vẫn kiểm tra tiếp đúng chỗ đang dở. */
 let T = null;
 async function startRound(n) {
+  Voice.unlock(); // còn trong cú bấm vào cấp: mở khóa giọng đọc trước khi xin quyền mic
   const lv = LEVELS[n - 1];
   const mode = modeKey(), B = book(mode);
   const run = B.runs[n] || (B.runs[n] = { started: Date.now(), first: null, rounds: [], pending: [], wrong: [], live: null });
@@ -912,7 +919,7 @@ async function runWord() {
   $('#tActions').className = 'test-actions single';
   $('#tActions').innerHTML = `<button class="btn" id="tNext">${T.pos + 1 >= T.items.length ? 'Xem kết quả' : `${T.phrase ? 'Cụm' : 'Từ'} tiếp theo`}${ICON.next}</button>`;
   $('#tKbd').textContent = `Phím tắt: Space = tạm dừng/tiếp tục · Enter = ${T.unit} tiếp theo`;
-  $('#tNext').onclick = () => { if (!alive()) return; T.pos++; runWord(); };
+  $('#tNext').onclick = () => { if (!alive()) return; Voice.unlock(); T.pos++; runWord(); };
   await speakEn(w.en);
   if (!alive()) return;
   if (S.autoNext) {
@@ -936,6 +943,7 @@ function pauseTest() {
   saveLive();
 }
 function resumeTest() {
+  Voice.unlock();
   if (!T || !T.paused) return;
   T.paused = false;
   $('#tPause').innerHTML = ICON.pause;
