@@ -25,6 +25,14 @@ Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định r
 - Chấm khi nói: phải nghe ra đủ các từ, đúng thứ tự (nghe thừa tiếng ở đầu, cuối vẫn được). Viết tắt và viết đủ như nhau (I'm = I am), đồng âm như nhau (no/know). Không có "gần đúng".
 - Chấm khi gõ: đúng hết từng chữ cái, bắt buộc gõ dấu ', không cần gõ ? ! . , và không phân biệt hoa/thường. Me too / Same here cùng nghĩa "Tôi cũng vậy" nên gõ cụm nào cũng tính đúng.
 
+## 96 câu giao tiếp (từ bản 2.3.0)
+
+- Dữ liệu: `cau96.js`, sinh từ `tai-lieu/96 câu tiếng Anh giao tiếp.xlsx` trong vault bằng `tools/build_cau96.py` (đọc bằng thư viện có sẵn của Python, không cần cài thêm). File có 3 bài (19 + 31 + 46 câu), chỉ có câu và nghĩa.
+- Trong app là phần riêng nằm dưới 100 cụm từ, kiểm tra liền **1 lượt 96 câu**, không chia bài. Chỉ hiện câu và nghĩa, không có phiên âm, không có câu ví dụ (anh Lộc chốt 2026-11-11). Câu được nối vào cuối `WORDS` (chỉ số 2023-2118), tiến độ cũ không đổi.
+- Sửa 3 chỗ chữ hiển thị so với file (anh Lộc duyệt): câu 32 thêm "?" (How old is your son?), câu 59 bỏ "?" (I don't know what it means), câu 60 viết hoa "Could". Cách chấm không đổi vì máy bỏ qua dấu câu và hoa/thường.
+- Tính giờ và chấm giống hệt phần 100 cụm. Cả lượt tối đa: Nói 10 phút 7 giây (mức 3 giây), Gõ phím 19 phút 14 giây. Câu dài nhất (I have one older brother and one younger sister): nói 11 giây, gõ 26 giây.
+- "No problem" có ở cả 100 cụm và 96 câu; hai phần tính tiến độ riêng.
+
 ## Cách kiểm tra
 
 - Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp (thứ tự từ xáo mỗi lần).

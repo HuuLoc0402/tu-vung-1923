@@ -3,11 +3,11 @@
 /* =========================================================
    1923 Từ - luyện nói từ vựng tiếng Anh
    Dữ liệu: words.js (WORDS = [en, ipa, vi, ví dụ, dịch ví dụ, nhóm gốc, bài])
-   và phrases.js (100 cụm từ giao tiếp, nối vào cuối WORDS)
+   và phrases.js (100 cụm từ giao tiếp), cau96.js (96 câu giao tiếp), cả hai nối vào cuối WORDS
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.2.1';
+const APP_VERSION = '2.3.0';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -68,13 +68,27 @@ LEVELS.push({
   n: LEVELS.length + 1, name: '100 cụm từ giao tiếp', short: 'Cụm từ', part: 0, desc: 'Câu nói ngắn hay dùng hằng ngày',
   fileRef: 'kiểm tra 1 lượt, không chia bài', mixed: false, phrase: true, color: ['#0ea5e9', '#0369a1'],
   items: PHRASE_ITEMS, size: PHRASE_ITEMS.length, lessonFrom: 0, lessonTo: 0,
+  section: 'Cụm từ giao tiếp', unit: 'cụm', noun: 'cụm từ', icon: '💬',
 });
+/* 96 câu giao tiếp (cau96.js): nối tiếp sau 100 cụm (chỉ số 2023-2118). Kiểm tra liền 1 lượt 96 câu, không chia bài;
+   chỉ có câu và nghĩa, không phiên âm, không câu ví dụ (chủ nhân chốt 2026-11-11). Tính giờ và chấm như 100 cụm. */
+WORD_SOURCES.push('Câu giao tiếp');
+const CAU96_ITEMS = CAU96.map((p) => WORDS.push([p[0], p[1], p[2], p[3], p[4], WORD_SOURCES.length - 1, 0]) - 1);
+LEVELS.push({
+  n: LEVELS.length + 1, name: '96 câu giao tiếp', short: 'Câu giao tiếp', part: 0, desc: 'Câu hỏi, câu đáp dùng hằng ngày',
+  fileRef: 'kiểm tra 1 lượt, không chia bài', mixed: false, phrase: true, color: ['#14b8a6', '#0f766e'],
+  items: CAU96_ITEMS, size: CAU96_ITEMS.length, lessonFrom: 0, lessonTo: 0,
+  section: 'Câu giao tiếp', unit: 'câu', noun: 'câu', icon: '🗣️',
+});
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 for (const lv of LEVELS) {
-  lv.tag = lv.phrase ? 'Cụm từ' : `Cấp ${lv.n}`;
+  lv.tag = lv.phrase ? lv.short : `Cấp ${lv.n}`;
   lv.title = lv.phrase ? lv.name : `Cấp ${lv.n} · ${lv.name}`;
-  lv.unit = lv.phrase ? 'cụm' : 'từ';
+  lv.unit = lv.unit || 'từ';
+  lv.noun = lv.noun || 'từ';
 }
 const WORD_LEVELS = LEVELS.filter((lv) => !lv.phrase);
+const PHRASE_LEVELS = LEVELS.filter((lv) => lv.phrase);
 
 /* ---------------- lưu trữ ----------------
    Hai chế độ Nói và Gõ phím là hai "sổ" riêng: books.voice và books.type, mỗi sổ có runs và reports của mình.
@@ -292,7 +306,7 @@ const PHRASE_CANON = {};
 for (const g of [['to', 'two', 'too'], ['for', 'four'], ['no', 'know'], ['right', 'write'], ['by', 'buy', 'bye'], ['here', 'hear'],
   ['new', 'knew'], ['meet', 'meat'], ['see', 'sea'], ['red', 'read'], ['one', 'won', '1']]) for (const w of g) PHRASE_CANON[w] = g[0];
 const phraseKey = (s) => norm(s).split(' ').map((t) => CONTRACT[t] || t).join(' ').split(' ').map((t) => PHRASE_CANON[t] || t).join(' ');
-const PHRASE_KEYS = new Set(PHRASES.map((p) => norm(p[0])));
+const PHRASE_KEYS = new Set([...PHRASES, ...CAU96].map((p) => norm(p[0])));
 function matchPhrase(target, transcripts) {
   const has = (heard, want) => ` ${heard} `.includes(` ${want} `) || heard.replace(/ /g, '') === want.replace(/ /g, '');
   const tk = phraseKey(target), syns = (SYN[norm(target)] || []).map(phraseKey);
@@ -451,7 +465,7 @@ function topbar(title, { back = 'home', right = '' } = {}) {
 function bindBack(root, target) { const b = $('[data-back]', root); if (b) b.onclick = typeof target === 'function' ? target : () => go(target || 'home'); }
 
 function levelBadge(lv, text) {
-  return `<div class="level-badge" style="background:linear-gradient(135deg,${lv.color[0]},${lv.color[1]})">${text ?? (lv.phrase ? '💬' : lv.n)}</div>`;
+  return `<div class="level-badge" style="background:linear-gradient(135deg,${lv.color[0]},${lv.color[1]})">${text ?? (lv.phrase ? lv.icon : lv.n)}</div>`;
 }
 
 function supportNotice() {
@@ -522,22 +536,9 @@ SCREENS.home = () => {
     </div>
     ${notice ? `<div style="margin-top:14px">${notice}</div>` : ''}
     <div class="section-title">${WORD_LEVELS.length} cấp độ · 1.923 từ</div>
-    <div class="level-grid">
-      ${LEVELS.map((lv) => {
-        const run = B.runs[lv.n];
-        const st = levelStatus(lv, run, B);
-        return `${lv.phrase ? `</div><div class="section-title">Cụm từ giao tiếp · ${lv.size} cụm</div><div class="level-grid">` : ''}<button class="level-card" data-level="${lv.n}">
-          ${levelBadge(lv)}
-          <div class="level-info">
-            <div class="level-name">${esc(lv.title)}</div>
-            <div class="level-meta">${lv.phrase ? `${lv.size} cụm · ${esc(lv.fileRef)}` : `${lv.size} từ · ${lv.mixed ? 'trộn ' : ''}bài ${lv.lessonFrom}-${lv.lessonTo}`}</div>
-            <div class="level-meta">${st.text}</div>
-            ${run && run.first ? `<div class="bar"><i style="width:${pct(lv.size - run.pending.length, lv.size)}%"></i></div>` : ''}
-          </div>
-          <div class="level-score"><b>${st.big}</b><span>${st.small}</span></div>
-        </button>`;
-      }).join('')}
-    </div>
+    <div class="level-grid">${WORD_LEVELS.map(homeCard).join('')}</div>
+    <div class="section-title">Giao tiếp · ${PHRASE_LEVELS.map((lv) => `${lv.size} ${lv.noun}`).join(' và ')}</div>
+    <div class="level-grid">${PHRASE_LEVELS.map(homeCard).join('')}</div>
   </div>`;
   app.querySelectorAll('[data-level]').forEach((b) => (b.onclick = () => {
     const n = +b.dataset.level;
@@ -549,14 +550,33 @@ SCREENS.home = () => {
   const ib = $('#btnInstall');
   if (deferredInstall) { ib.hidden = false; ib.onclick = doInstall; }
 };
+/* Thẻ một cấp ở trang chủ: tên 1 dòng, dòng phụ (phần, số từ), trạng thái, thanh tiến độ, để các thẻ cao bằng nhau */
+function homeCard(lv) {
+  const B = book();
+  const run = B.runs[lv.n];
+  const st = levelStatus(lv, run, B);
+  const name = lv.phrase ? lv.name : `Cấp ${lv.n} · ${lv.short}`;
+  const meta = lv.phrase ? `${lv.size} ${lv.unit} · 1 lượt` : `${lv.part ? `Phần ${lv.part} · ` : ''}${lv.size} từ${lv.mixed ? '' : ` · bài ${lv.lessonFrom}-${lv.lessonTo}`}`;
+  const done = run && run.first ? pct(lv.size - run.pending.length, lv.size) : 0;
+  return `<button class="level-card" data-level="${lv.n}">
+    ${levelBadge(lv)}
+    <div class="level-info">
+      <div class="level-name">${esc(name)}</div>
+      <div class="level-meta">${esc(meta)}</div>
+      <div class="level-meta level-status">${st.text}</div>
+      <div class="bar"><i style="width:${done}%"></i></div>
+    </div>
+    <div class="level-score"><b>${st.big}</b><span>${st.small}</span></div>
+  </button>`;
+}
 function levelStatus(lv, run, B) {
   const times = B.reports.filter((r) => r.lv === lv.n).length;
-  if (!run) return { text: times ? `Đã hoàn thành ${times} lần. Bấm để kiểm tra lượt mới` : 'Chưa kiểm tra. Bấm để kiểm tra', big: times, small: 'lần xong' };
+  if (!run) return { text: times ? `Đã hoàn thành ${times} lần` : 'Chưa kiểm tra', big: times, small: 'lần xong' };
   const L = run.live;
-  if (!run.first) return { text: 'Đang kiểm tra lần 1 dở, bấm để kiểm tra tiếp', big: `${L ? L.results.length : 0}/${lv.size}`, small: 'đã làm' };
+  if (!run.first) return { text: 'Đang làm lần 1 dở', big: `${L ? L.results.length : 0}/${lv.size}`, small: 'đã làm' };
   const k = run.rounds.length;
   return {
-    text: L ? `Đang kiểm tra lại lần ${L.round} dở, bấm để kiểm tra tiếp` : `Lần 1 đạt ${pct(run.first.c, run.first.n)}% · ${k ? `đã kiểm tra lại ${k} lần` : 'chưa kiểm tra lại'}`,
+    text: L ? `Đang kiểm tra lại lần ${L.round} dở` : `Lần 1 đạt ${pct(run.first.c, run.first.n)}%${k ? ` · kiểm tra lại ${k} lần` : ''}`,
     big: run.pending.length, small: `${lv.unit} còn sai`,
   };
 }
@@ -625,8 +645,8 @@ async function startRound(n) {
     results: L.results.map(([i, ok, heard]) => ({ i, ok: !!ok, heard })),
     token: 0, paused: false, startedAt: L.startedAt, phase: 'idle', cancelTap: null,
     limitMs: L.limitMs, usedMs: L.usedMs, runFrom: null, timeUp: false,
-    title: lv.title, sub: `${MODE_NAME[mode]} · ${L.kind === 'first' ? `Lần 1 · cả ${lv.phrase ? `${lv.size} cụm` : 'cấp'}` : `Kiểm tra lại lần ${L.round}`}`,
-    phrase: !!lv.phrase, unit: lv.unit,
+    title: lv.title, sub: `${MODE_NAME[mode]} · ${L.kind === 'first' ? `Lần 1 · cả ${lv.phrase ? `${lv.size} ${lv.unit}` : 'cấp'}` : `Kiểm tra lại lần ${L.round}`}`,
+    phrase: !!lv.phrase, unit: lv.unit, noun: lv.noun,
   };
   go('test');
 }
@@ -667,7 +687,7 @@ SCREENS.test = () => {
       <div class="q-status" id="tStatus"></div>
       <div class="q-heard" id="tHeard"></div>
       <form class="type-box hidden" id="tType" autocomplete="off">
-        <input id="tInput" type="text" inputmode="latin" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Gõ ${T.phrase ? 'cụm từ' : 'từ'} tiếng Anh..." aria-label="Gõ tiếng Anh">
+        <input id="tInput" type="text" inputmode="latin" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Gõ tiếng Anh..." aria-label="Gõ tiếng Anh">
         <button class="btn" type="submit">Kiểm tra</button>
       </form>
       <div class="reveal hidden" id="tReveal"></div>
@@ -742,7 +762,8 @@ function hintFor(en) {
   if (!S.hint) return '';
   const words = en.replace(/[?!.,]/g, '').trim().split(/\s+/);
   const one = (w) => [w[0], ...w.slice(1).replace(/[a-z]/gi, '_')].map(esc).join(' ');
-  if (words.length > 1) return `${words.map((w) => `<span class="hw">${one(w)}</span>`).join(' · ')}<small>(${words.length} từ)</small>`;
+  // nhiều từ: mỗi từ một khối, xếp giữa thành hàng đều nhau, không xuống dòng giữa một từ
+  if (words.length > 1) return `<span class="hw-list">${words.map((w) => `<span class="hw">${one(w)}</span>`).join('')}</span><small class="hw-count">${words.length} từ</small>`;
   return `${one(en)}<small>(${en.length} chữ)</small>`;
 }
 /* Tô đậm từ (hoặc cụm từ) trong câu ví dụ */
@@ -800,7 +821,7 @@ async function runWord() {
   $('#tReveal').classList.add('hidden');
   $('#tActions').innerHTML = '';
   const secs = answerSeconds(w.i);
-  const noun = T.phrase ? 'cụm từ' : 'từ';
+  const noun = T.noun;
   $('#tSec').textContent = secs + 's';
   setRing(1);
   $('#tMic').innerHTML = useMic() ? ICON.mic : ICON.micOff;
@@ -891,8 +912,8 @@ async function runWord() {
   rv.innerHTML = `
     ${ok ? `<span class="verdict ${verdict === 'exact' ? 'ok' : 'near'}">${ICON.check}${VERDICT_TEXT[verdict]}</span>`
       : `<span class="verdict bad">${ICON.cross}${heard ? 'Chưa đúng' : 'Hết giờ'}</span>`}
-    <div class="reveal-word"><span class="en">${esc(w.en)}</span><span class="ipa">${esc(w.ipa)}</span></div>
-    <div class="example">${exEsc}<span class="vi">${esc(w.exVi)}</span></div>
+    <div class="reveal-word"><span class="en">${esc(w.en)}</span>${w.ipa ? `<span class="ipa">${esc(w.ipa)}</span>` : ''}</div>
+    ${w.ex ? `<div class="example">${exEsc}<span class="vi">${esc(w.exVi)}</span></div>` : `<div class="example"><span class="vi">${esc(w.vi)}</span></div>`}
     <div class="speak-btns">
       <button class="btn sm secondary" id="tHear">${ICON.speaker}Nghe lại</button>
       <button class="btn sm ghost" id="tSlow">${ICON.slow}Nghe chậm</button>
@@ -903,7 +924,7 @@ async function runWord() {
   $('#tMic').innerHTML = ok ? ICON.check : ICON.cross;
   $('#tSec').textContent = '0s';
   $('#tStatus').textContent = ok
-    ? ({ exact: 'Tuyệt!', near: byVoice ? 'Gần đúng, nghe lại cho chuẩn nhé' : 'Gần đúng, xem lại chính tả nhé', syn: `Đúng nghĩa! ${T.phrase ? 'Cụm' : 'Từ'} cần tìm ở đây là "${w.en}"` })[verdict]
+    ? ({ exact: 'Tuyệt!', near: byVoice ? 'Gần đúng, nghe lại cho chuẩn nhé' : 'Gần đúng, xem lại chính tả nhé', syn: `Đúng nghĩa! ${cap(T.unit)} cần tìm ở đây là "${w.en}"` })[verdict]
     : (heard ? 'Chưa đúng rồi' : 'Hết giờ');
   const what = byVoice ? 'Máy nghe' : 'Bạn gõ';
   const heardHtml = !byVoice && !ok ? typoHtml(heard, typeTarget(w.en)) : esc(heard);
@@ -917,7 +938,7 @@ async function runWord() {
 
   record(ok);
   $('#tActions').className = 'test-actions single';
-  $('#tActions').innerHTML = `<button class="btn" id="tNext">${T.pos + 1 >= T.items.length ? 'Xem kết quả' : `${T.phrase ? 'Cụm' : 'Từ'} tiếp theo`}${ICON.next}</button>`;
+  $('#tActions').innerHTML = `<button class="btn" id="tNext">${T.pos + 1 >= T.items.length ? 'Xem kết quả' : `${cap(T.unit)} tiếp theo`}${ICON.next}</button>`;
   $('#tKbd').textContent = `Phím tắt: Space = tạm dừng/tiếp tục · Enter = ${T.unit} tiếp theo`;
   $('#tNext').onclick = () => { if (!alive()) return; Voice.unlock(); T.pos++; runWord(); };
   await speakEn(w.en);
@@ -1041,13 +1062,13 @@ SCREENS.done = (id) => {
     ${topbar(lv.phrase ? 'Hoàn thành' : 'Hoàn thành cấp')}
     <div class="card sum-hero">
       <div style="font-size:46px;line-height:1">🎉</div>
-      <h2 class="sum-title" style="margin-top:8px">Hoàn thành ${lv.phrase ? `${lv.size} cụm từ` : `cấp ${r.lv}`}!</h2>
+      <h2 class="sum-title" style="margin-top:8px">Hoàn thành ${lv.phrase ? `${lv.size} ${lv.noun}` : `cấp ${r.lv}`}!</h2>
       <div class="muted small">${esc(r.name)} · ${MODE_NAME[modeKey()]} · ${fmtDate(r.t)}</div>
-      <div style="margin-top:10px;font-weight:700">${r.retakes ? `Kiểm tra lại ${r.retakes} lần thì hết từ sai` : 'Đúng hết ngay lần 1, không phải kiểm tra lại'}</div>
+      <div style="margin-top:10px;font-weight:700">${r.retakes ? `Kiểm tra lại ${r.retakes} lần thì hết ${lv.unit} sai` : 'Đúng hết ngay lần 1, không phải kiểm tra lại'}</div>
       <div class="section-title" style="margin:18px 0 0">Báo cáo lần 1</div>
       ${firstStats(r.first.c, r.first.n)}
     </div>
-    <p class="small muted center" style="margin:12px 6px">Đã lưu vào Báo cáo tổng hợp. Danh sách ${lv.unit} sai đã làm mới, lần sau bấm vào ${lv.phrase ? 'phần cụm từ' : 'cấp'} sẽ kiểm tra lại từ đầu.</p>
+    <p class="small muted center" style="margin:12px 6px">Đã lưu vào Báo cáo tổng hợp. Danh sách ${lv.unit} sai đã làm mới, lần sau bấm vào ${lv.phrase ? `phần ${lv.noun}` : 'cấp'} sẽ kiểm tra lại từ đầu.</p>
     <div class="btn-row">
       <button class="btn ghost" id="dHome">Trang chủ</button>
       <button class="btn" id="dReport">${ICON.chart}Báo cáo tổng hợp</button>
@@ -1208,6 +1229,7 @@ SCREENS.help = () => {
       <ul>
         <li>1.923 từ chia thành <b>8 cấp</b>. Cấp 1 Nền tảng (271 từ, bài 1-27), cấp 2 Đời sống (273 từ, bài 28-54). Cấp 3, 4, 5 là Thông dụng, mỗi cấp 240 từ trộn lẫn từ bài 55-126. Cấp 6, 7, 8 là Mở rộng (220, 220, 219 từ) trộn lẫn từ bài 127-192.</li>
         <li>Phần <b>100 cụm từ giao tiếp</b> (Well done, Take care...) nằm dưới 8 cấp: kiểm tra liền <b>1 lượt 100 cụm</b>, không chia bài. Chế độ Nói: thêm 1 giây cho mỗi từ sau từ đầu (vd Me too ${S.seconds + 1} giây, Don't be mad at me ${S.seconds + 4} giây). Chế độ Gõ phím: 1-2 phím 3 giây, mỗi phím thêm cộng 0,5 giây (đếm chữ cái, dấu cách và dấu ').</li>
+        <li>Phần <b>96 câu giao tiếp</b> (May I come in?, What do you mean?...) nằm dưới phần cụm từ: kiểm tra liền <b>1 lượt 96 câu</b>, không chia bài. Tính giờ và chấm giống phần 100 cụm (vd Thank you so much ${S.seconds + 3} giây khi nói).</li>
         <li>Có <b>2 chế độ</b>: <b>Nói</b> và <b>Gõ phím</b>, chọn ở Cài đặt, mục "Trả lời bằng". Mỗi chế độ có tiến độ, từ sai và báo cáo riêng. Đang nói dở cấp 1 mà chuyển sang gõ phím thì cấp 1 bên gõ bắt đầu từ từ đầu (nếu bên gõ chưa làm), quay lại chế độ Nói vẫn làm tiếp chỗ đang dở.</li>
         <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Chế độ Nói: thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 240 từ = ${fmtLimit(240 * S.seconds)}). Chế độ Gõ phím: cộng thời gian gõ của từng từ. Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
         <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ nào cũng vậy. Quá giờ tính là sai. Máy tự chấm. Chế độ Gõ phím thì thời gian theo độ dài từ: từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây).</li>

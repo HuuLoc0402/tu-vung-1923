@@ -163,7 +163,7 @@ button { cursor: pointer; }
 .hero-stat span { font-size: 12px; opacity: .9; }
 
 .level-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-@media (min-width: 600px) { .level-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 600px) { .level-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .level-card {
   background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
   padding: 16px; border: 0; text-align: left; display: flex; gap: 14px; align-items: center;
@@ -175,11 +175,14 @@ button { cursor: pointer; }
   display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 22px;
 }
 .level-info { flex: 1; min-width: 0; }
-.level-name { font-weight: 700; font-size: 16px; }
+.level-name { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .level-meta { font-size: 13px; color: var(--muted); }
+.level-card .level-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.level-card .level-status { color: var(--text); opacity: .75; white-space: normal; }
+.level-card .bar { margin-top: 6px; }
 .bar { height: 7px; border-radius: 9px; background: var(--surface-2); overflow: hidden; margin-top: 8px; }
 .bar > i { display: block; height: 100%; border-radius: 9px; background: var(--ok); transition: width .4s; }
-.level-score { text-align: right; flex: none; }
+.level-score { text-align: right; flex: none; min-width: 52px; }
 .level-score b { display: block; font-size: 17px; }
 .level-score span { font-size: 12px; color: var(--muted); }
 .level-card.review { grid-column: 1 / -1; }
@@ -250,6 +253,8 @@ button { cursor: pointer; }
 .q-vi { font-size: clamp(24px, 6.4vw, 34px); font-weight: 800; line-height: 1.25; margin: 10px 0 6px; min-height: 2.5em; display: flex; align-items: center; justify-content: center; text-wrap: balance; }
 .q-hint { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .25em; color: var(--muted); font-size: 18px; min-height: 28px; }
 .q-hint .hw { white-space: nowrap; }
+.q-hint .hw-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; letter-spacing: .12em; font-size: 17px; line-height: 1.5; max-width: 340px; margin: 0 auto; }
+.q-hint .hw-count { display: block; margin: 2px 0 0; }
 .q-hint small { letter-spacing: 0; font-family: var(--font); font-size: 13px; margin-left: 6px; }
 
 .ring-wrap { position: relative; width: 132px; height: 132px; margin: 16px auto 8px; }
