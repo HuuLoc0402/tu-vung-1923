@@ -7,7 +7,7 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.3.1';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -375,11 +375,16 @@ function listenFor(target, ms, { onStart, onHeard, onSound } = {}) {
       timer = setTimeout(() => {
         timedOut = true;
         if (near) return finish(near);
-        graceTimer = setTimeout(() => finish(near || null), sound ? 1800 : 500);
+        // Hết giờ: bảo máy chốt những gì đã thu (stop), KHÔNG vứt đi (abort), rồi chờ kết quả cuối.
+        // Đang nói dở thì cho nói nốt 1 giây. Máy nào không báo "có tiếng" thì vẫn chờ kết quả, vì máy nhận dạng hay trả chậm.
+        const settle = () => { try { rec.stop(); } catch (e) { /* bỏ qua */ } graceTimer = setTimeout(() => finish(near || null), 2000); };
+        if (sound) graceTimer = setTimeout(settle, 1000); else settle();
       }, ms);
     };
     const gotSound = () => { if (!sound) { sound = true; onSound && onSound(); } };
-    rec.onstart = begin;
+    // Đếm giờ từ lúc mic THẬT SỰ thu tiếng (audiostart), không phải lúc máy mới nhận lệnh (start):
+    // trên điện thoại hai lúc này cách nhau tới gần 1 giây, nói sớm là mất đầu từ. Máy không báo audiostart thì 0,7 giây sau start mới đếm.
+    rec.onstart = () => { if (started || done) return; clearTimeout(startGuard); startGuard = setTimeout(begin, 700); };
     rec.onaudiostart = begin;
     rec.onsoundstart = gotSound;
     rec.onspeechstart = gotSound;
@@ -413,8 +418,12 @@ function listenFor(target, ms, { onStart, onHeard, onSound } = {}) {
       if (!started) return finish(null, lastError || 'no-start');
       // máy tự ngắt khi còn giờ (vd sau một từ ngắn): mở lại để nghe tiếp
       prevHeard = heard;
-      if (deadline - performance.now() > 500) { try { rec.start(); return; } catch (e) { /* rơi xuống */ } }
-      // còn rất ít thời gian: chờ hết giờ rồi chấm
+      // Android hay báo lỗi nếu mở lại ngay: thử lại vài lần cách nhau 150ms, để mic không bị "điếc" phần giờ còn lại
+      const restart = (tries) => {
+        if (done || timedOut || deadline - performance.now() <= 500) return; // còn quá ít giờ: chờ hết giờ rồi chấm
+        try { rec.start(); } catch (e) { if (tries > 0) setTimeout(() => restart(tries - 1), 150); }
+      };
+      restart(4);
     };
     // Có máy không bắn onstart: vẫn bắt đầu đếm giờ sau 1,6 giây
     startGuard = setTimeout(begin, 1600);
