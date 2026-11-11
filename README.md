@@ -90,6 +90,7 @@ Sửa app sau này: `git add -A && git commit -m "..." && git push`, Pages tự 
 
 - Nhận giọng nói (Web Speech API) chạy tốt nhất trên **Chrome/Edge** (Android, Windows, Mac) và cần **Internet**.
 - Cách nghe mic (từ bản 2.3.1): 3 giây được đếm từ lúc mic thật sự thu tiếng; hết giờ thì máy chốt lại phần đã thu chứ không bỏ đi; máy tự ngắt giữa chừng thì mở lại mic, thử lại vài lần nếu điện thoại báo lỗi.
+- Mic kẹt (từ bản 2.3.2): máy không mở được phiên nghe, bấm mà máy im, hoặc hết giờ máy không trả lời thì không tính sai. Lần đầu app tự mở lại mic cho nói lại từ đó (không đọc nghĩa lại), kẹt 2 lần liền thì hiện cách sửa với 2 nút Thử lại mic / Gõ phím. Cài đặt có **Nhật ký mic** (15 lần nghe gần nhất, trình duyệt, cách mở app) để chụp gửi khi máy nào bị.
 - **Safari iPhone/iPad** nhận giọng còn chập chờn; Firefox không có. Khi đó app chuyển sang trả lời bằng **gõ phím**, máy vẫn tự chấm.
 - Đọc tiếng Việt cần máy có giọng vi-VN (Android, Windows có sẵn "Microsoft An"; iPhone có sẵn).
 - Tiến độ lưu trong `localStorage` của từng trình duyệt, không đồng bộ giữa các máy. Dùng Báo cáo → Xuất/Nhập dữ liệu để chuyển máy.

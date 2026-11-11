@@ -7,7 +7,7 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.3.1';
+const APP_VERSION = '2.3.2';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -343,33 +343,59 @@ function matchAnswer(target, transcripts) {
   return near ? 'near' : syn ? 'syn' : null;
 }
 
+/* Nhật ký mic: 15 lần nghe gần nhất (sự kiện của máy nhận giọng, lỗi), xem ở Cài đặt > Kiểm tra máy.
+   Máy nào bị "nói mà mic không nhận" thì chụp nhật ký này gửi lại là biết máy kẹt ở bước nào. */
+const MIC_LOG_KEY = 'tu1923:miclog';
+let micLog = (() => { try { return JSON.parse(localStorage.getItem(MIC_LOG_KEY) || '[]') || []; } catch (e) { return []; } })();
+function logMic(entry) {
+  micLog.push(entry); micLog = micLog.slice(-15);
+  try { localStorage.setItem(MIC_LOG_KEY, JSON.stringify(micLog)); } catch (e) { /* bỏ qua */ }
+}
+
 /**
  * Nghe một từ trong `ms` mili giây.
- * Kết quả: { verdict: 'exact'|'near'|'syn'|null, heard, error }
- * Hết giờ mà máy đã nghe thấy tiếng nói thì chờ thêm chút cho máy xử lý xong (máy nhận dạng thường trễ 0,5-1,5 giây).
+ * Kết quả: { verdict: 'exact'|'near'|'syn'|null, heard, error, fault }
+ * fault (mic kẹt, không phải do người học): 'no-start' (máy không mở được phiên nghe), 'no-events' (bấm mà máy im, không báo gì),
+ * 'hung' (hết giờ bảo máy chốt mà máy không trả lời). Khi đó app mở lại mic chứ không tính sai.
  */
-let activeRec = null;
+let activeRec = null, lastRec = null;
 function listenFor(target, ms, { onStart, onHeard, onSound } = {}) {
   return new Promise((resolve) => {
     const SR = getSR();
     if (!SR) return resolve({ verdict: null, heard: '', error: 'unsupported' });
+    // Phiên nghe trước chưa tắt hẳn thì tắt đi; giọng đọc còn kêu thì tắt luôn, để mic và loa không giành nhau
+    if (lastRec && !lastRec.__ended) { try { lastRec.abort(); } catch (e) { /* bỏ qua */ } }
+    Voice.stop();
     let rec;
     try { rec = new SR(); } catch (e) { return resolve({ verdict: null, heard: '', error: 'unsupported' }); }
-    activeRec = rec;
+    activeRec = lastRec = rec; rec.__ended = false;
     // continuous=false ổn định hơn trên Chrome Android; máy ngắt sớm thì mở lại
     rec.lang = S.accent; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 5;
     let prevHeard = '', heard = '', done = false, timedOut = false, started = false, near = false, sound = false;
     let deadline = 0, timer = null, graceTimer = null, startGuard = null, lastError = '';
+    let gotStart = false, gotAudio = false, gotResult = false, stopAt = 0;
+    const t0 = performance.now(), ev = [];
+    const mark = (name) => { if (ev.length < 40) ev.push(`${name}@${Math.round(performance.now() - t0)}`); };
     const finish = (verdict, error) => {
       if (done) return; done = true;
       clearTimeout(timer); clearTimeout(graceTimer); clearTimeout(startGuard);
-      rec.onresult = rec.onerror = rec.onend = rec.onstart = rec.onspeechstart = rec.onsoundstart = rec.onaudiostart = null;
-      try { rec.abort(); } catch (e) { /* bỏ qua */ }
+      let fault = null;
+      if (error !== 'cancel' && !gotResult) {
+        if (error === 'no-start' || error === 'start-failed' || error === 'aborted') fault = 'no-start';
+        else if (!error && !gotStart && !gotAudio) fault = 'no-events';
+        else if (!error && stopAt && !rec.__ended) fault = 'hung';
+      }
+      rec.onresult = rec.onerror = rec.onstart = rec.onspeechstart = rec.onsoundstart = rec.onaudiostart = null;
+      rec.onend = () => { rec.__ended = true; };
+      if (!rec.__ended) { try { rec.abort(); } catch (e) { /* bỏ qua */ } }
       if (activeRec === rec) activeRec = null;
-      resolve({ verdict, heard: heard.trim(), error });
+      mark('xong');
+      logMic({ t: Date.now(), w: target, v: verdict || '', h: heard.trim().slice(0, 60), e: error || '', f: fault || '', ev: ev.join(' ') });
+      resolve({ verdict, heard: heard.trim(), error, fault });
     };
     const begin = () => {
       if (started || done) return; started = true;
+      mark('dem-gio');
       deadline = performance.now() + ms;
       onStart && onStart(ms);
       timer = setTimeout(() => {
@@ -377,19 +403,19 @@ function listenFor(target, ms, { onStart, onHeard, onSound } = {}) {
         if (near) return finish(near);
         // Hết giờ: bảo máy chốt những gì đã thu (stop), KHÔNG vứt đi (abort), rồi chờ kết quả cuối.
         // Đang nói dở thì cho nói nốt 1 giây. Máy nào không báo "có tiếng" thì vẫn chờ kết quả, vì máy nhận dạng hay trả chậm.
-        const settle = () => { try { rec.stop(); } catch (e) { /* bỏ qua */ } graceTimer = setTimeout(() => finish(near || null), 2000); };
+        const settle = () => { mark('stop'); stopAt = performance.now(); try { rec.stop(); } catch (e) { /* bỏ qua */ } graceTimer = setTimeout(() => finish(near || null), 2000); };
         if (sound) graceTimer = setTimeout(settle, 1000); else settle();
       }, ms);
     };
     const gotSound = () => { if (!sound) { sound = true; onSound && onSound(); } };
     // Đếm giờ từ lúc mic THẬT SỰ thu tiếng (audiostart), không phải lúc máy mới nhận lệnh (start):
     // trên điện thoại hai lúc này cách nhau tới gần 1 giây, nói sớm là mất đầu từ. Máy không báo audiostart thì 0,7 giây sau start mới đếm.
-    rec.onstart = () => { if (started || done) return; clearTimeout(startGuard); startGuard = setTimeout(begin, 700); };
-    rec.onaudiostart = begin;
-    rec.onsoundstart = gotSound;
-    rec.onspeechstart = gotSound;
+    rec.onstart = () => { mark('start'); gotStart = true; if (started || done) return; clearTimeout(startGuard); startGuard = setTimeout(begin, 700); };
+    rec.onaudiostart = () => { mark('audio'); gotAudio = true; begin(); };
+    rec.onsoundstart = () => { mark('sound'); gotSound(); };
+    rec.onspeechstart = () => { mark('speech'); gotSound(); };
     rec.onresult = (e) => {
-      gotSound();
+      gotSound(); gotResult = true;
       const alts = []; let cur = ''; let allFinal = true;
       for (let r = 0; r < e.results.length; r++) {
         const res = e.results[r];
@@ -398,6 +424,7 @@ function listenFor(target, ms, { onStart, onHeard, onSound } = {}) {
         for (let a = 0; a < res.length; a++) alts.push(res[a].transcript);
       }
       heard = (prevHeard ? prevHeard + ' ' : '') + cur;
+      mark(allFinal ? 'kq' : 'kq-tam');
       alts.unshift(cur, heard);
       onHeard && onHeard(heard.trim());
       const v = matchAnswer(target, alts);
@@ -408,11 +435,13 @@ function listenFor(target, ms, { onStart, onHeard, onSound } = {}) {
     };
     rec.onerror = (e) => {
       lastError = e.error || 'error';
+      mark('loi:' + lastError);
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') micBlocked = true;
       finish(near || null, lastError);
     };
     rec.onend = () => {
+      mark('end'); rec.__ended = true;
       if (done) return;
       if (timedOut) return finish(near || null);
       if (!started) return finish(null, lastError || 'no-start');
@@ -421,13 +450,14 @@ function listenFor(target, ms, { onStart, onHeard, onSound } = {}) {
       // Android hay báo lỗi nếu mở lại ngay: thử lại vài lần cách nhau 150ms, để mic không bị "điếc" phần giờ còn lại
       const restart = (tries) => {
         if (done || timedOut || deadline - performance.now() <= 500) return; // còn quá ít giờ: chờ hết giờ rồi chấm
-        try { rec.start(); } catch (e) { if (tries > 0) setTimeout(() => restart(tries - 1), 150); }
+        try { rec.__ended = false; rec.start(); mark('mo-lai'); } catch (e) { rec.__ended = true; if (tries > 0) setTimeout(() => restart(tries - 1), 150); }
       };
       restart(4);
     };
     // Có máy không bắn onstart: vẫn bắt đầu đếm giờ sau 1,6 giây
     startGuard = setTimeout(begin, 1600);
-    try { rec.start(); } catch (e) { finish(null, 'start-failed'); }
+    mark('bam');
+    try { rec.start(); } catch (e) { rec.__ended = true; finish(null, 'start-failed'); }
   });
 }
 
@@ -787,6 +817,15 @@ const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platfor
 /* Cách sửa khi mic lỗi, theo loại máy */
 function micFixHtml(err) {
   if (err === 'network') return '<ul class="fix-list"><li>Nhận giọng nói cần Internet. Kiểm tra lại mạng rồi bấm <b>Thử lại mic</b>.</li></ul>';
+  if (err === 'stuck') {
+    return `<ul class="fix-list">
+      <li>Bấm <b>Thử lại mic</b> và nói lại. Câu này chưa bị tính sai.</li>
+      <li>Vẫn kẹt: tắt hẳn ${isIOS ? 'Safari' : 'trình duyệt'} (vuốt đóng app), mở lại app rồi kiểm tra tiếp, bài đang làm vẫn còn.</li>
+      <li>Mở app bằng ${isIOS ? '<b>Safari</b>' : '<b>Chrome</b>'}, không mở trong Zalo, Facebook, Messenger.</li>
+      <li>Thử tắt <b>Đọc nghĩa tiếng Việt</b> ở mục Cách làm bài: một số máy đọc xong là mic bị kẹt.</li>
+      <li>Vẫn không được thì chọn <b>Gõ phím</b>, và vào Cài đặt &gt; <b>Nhật ký mic</b> chụp màn hình gửi thầy cô.</li>
+    </ul>`;
+  }
   if (isIOS) {
     return `<ul class="fix-list">
       <li>Mở <b>Cài đặt</b> &gt; <b>Safari</b> &gt; <b>Micrô</b>: chọn <b>Cho phép</b> (hoặc <b>Hỏi</b>).</li>
@@ -835,7 +874,9 @@ async function runWord() {
   setRing(1);
   $('#tMic').innerHTML = useMic() ? ICON.mic : ICON.micOff;
   $('#tStatus').textContent = S.readVi ? 'Đang đọc nghĩa...' : 'Chuẩn bị...';
-  if (S.readVi) await Voice.speak(w.vi, 'vi-VN', 1.05); else await sleep(500);
+  // mic vừa kẹt thì không đọc nghĩa lại (giọng đọc có thể làm mic kẹt trên một số máy), chỉ chờ chút cho mic nghỉ
+  const reread = !T.skipRead; T.skipRead = false;
+  if (S.readVi && reread) await Voice.speak(w.vi, 'vi-VN', 1.05); else await sleep(500);
   if (!alive()) return;
 
   let verdict = null, heard = '';
@@ -847,6 +888,7 @@ async function runWord() {
       let windowEnd = null;
       const start = () => {
         clockStop(); // lúc máy mở mic không tính
+        T.usedAtTap = T.usedMs; // mic kẹt thì trả lại phần giờ của lần nghe hỏng
         $('#tMic').onclick = null;
         $('#tRing').classList.remove('tap');
         $('#tStatus').textContent = 'Đang mở mic...';
@@ -870,11 +912,21 @@ async function runWord() {
     });
     if (T) T.cancelTap = null;
     if (!alive()) return;
-    if (res.error && !['no-start', 'no-speech', 'aborted', 'cancel'].includes(res.error)) {
+    // Mic kẹt (máy không mở được phiên nghe, bấm mà máy im, hết giờ máy không trả lời): lỗi của máy, không tính sai cho người học.
+    // Lần đầu: tự mở lại mic cho nói lại từ này. Kẹt 2 lần liền: hiện cách sửa, cho chọn Thử lại mic hoặc Gõ phím.
+    const fault = res.fault && res.error !== 'cancel' ? res.fault : null;
+    if (fault) {
+      T.micFaults = (T.micFaults || 0) + 1;
+      if (T.usedAtTap != null) T.usedMs = T.usedAtTap;
+      if (T.micFaults === 1) { toast('Mic chưa nghe được, máy đã mở lại mic. Bấm mic nói lại nhé.', 3500); T.skipRead = true; return runWord(); }
+    } else if (res.error !== 'cancel') T.micFaults = 0;
+    if (fault || (res.error && !['no-start', 'no-speech', 'aborted', 'cancel'].includes(res.error))) {
       // mic lỗi: chỉ cách sửa, cho thử lại mic (vd sau khi bật lại quyền mic) hoặc gõ phím
-      const pick = res.error === 'unsupported' ? 'type' : await micTrouble(res.error);
+      const err = fault ? 'stuck' : res.error;
+      const pick = err === 'unsupported' ? 'type' : await micTrouble(err);
       if (!alive()) return;
-      if (pick === 'retry') { micBlocked = false; return runWord(); }
+      if (pick === 'retry') { micBlocked = false; T.micFaults = 1; return runWord(); }
+      if (fault) micBlocked = true; // mic kẹt mà chọn gõ phím: các từ còn lại gõ phím luôn
       byVoice = false;
       // chuyển sang gõ phím: cộng thêm phần thời gian gõ còn thiếu (mic hỏng hẳn thì tính cho các từ còn lại, không thì chỉ từ này)
       const rest = micBlocked ? T.items.slice(T.pos) : [T.items[T.pos]];
@@ -1196,6 +1248,13 @@ SCREENS.settings = () => {
       </div>
       <div class="small center" id="sMicOut" style="margin-top:10px;min-height:22px"></div>
     </div>
+    <div class="section-title">Nhật ký mic</div>
+    <div class="card">
+      <div class="small muted">Máy bị "nói mà mic không nhận" thì chụp màn hình phần này gửi thầy cô.</div>
+      <div class="small" style="margin-top:8px"><b>${esc(browserInfo())}</b> · bản ${APP_VERSION}</div>
+      <div class="mic-log" id="sMicLog">${micLogHtml()}</div>
+      <div class="btn-row" style="margin-top:12px"><button class="btn ghost sm" id="sCopyLog">Chép nhật ký</button></div>
+    </div>
     <div class="center" style="margin-top:18px"><button class="link-btn" id="sHelp">Hướng dẫn & giới hạn</button></div>
     <p class="small muted center" style="margin-top:6px">Phiên bản ${APP_VERSION}</p>
   </div>`;
@@ -1213,10 +1272,36 @@ SCREENS.settings = () => {
     else out.innerHTML = r.heard ? `Máy nghe: <b>${esc(r.heard)}</b> (mic chạy được)` : 'Không nghe thấy gì. Kiểm tra lại mic.';
     if (!r.error) micBlocked = false;
     $('.status-list').innerHTML = deviceStatus(vVi, vEn);
+    $('#sMicLog').innerHTML = micLogHtml();
+  };
+  $('#sCopyLog').onclick = async () => {
+    const text = [`${browserInfo()} · bản ${APP_VERSION}`, navigator.userAgent,
+      ...micLog.slice().reverse().map((x) => `${new Date(x.t).toLocaleString('vi-VN')} | ${x.w} | ${x.v || 'sai'} | nghe: ${x.h || '-'} | ${x.f ? 'kẹt:' + x.f : ''}${x.e ? ' lỗi:' + x.e : ''} | ${x.ev}`)].join(String.fromCharCode(10));
+    try { await navigator.clipboard.writeText(text); toast('Đã chép nhật ký, dán vào Zalo gửi thầy cô nhé.'); }
+    catch (e) { toast('Máy không cho chép, bạn chụp màn hình giúp nhé.'); }
   };
 };
+/* Trình duyệt đang mở app và cách mở (để biết máy nào hay kẹt mic) */
+function browserInfo() {
+  const ua = navigator.userAgent;
+  const name = /Zalo/i.test(ua) ? 'Trong Zalo' : /FBAN|FBAV|FB_IAB/.test(ua) ? 'Trong Facebook/Messenger' : /Instagram/.test(ua) ? 'Trong Instagram'
+    : /TikTok|musical_ly|Bytedance/i.test(ua) ? 'Trong TikTok' : /coc_coc/i.test(ua) ? 'Cốc Cốc' : /SamsungBrowser/.test(ua) ? 'Samsung Internet'
+    : /EdgA?\/|Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera' : /CriOS/.test(ua) ? 'Chrome (iPhone)' : /FxiOS|Firefox/.test(ua) ? 'Firefox'
+    : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Trình duyệt khác';
+  const os = isIOS ? 'iPhone/iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'Mac' : '';
+  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  return [name, os, standalone ? 'mở từ icon màn hình chính' : ''].filter(Boolean).join(' · ');
+}
+function micLogHtml() {
+  if (!micLog.length) return '<div class="small muted" style="margin-top:8px">Chưa có lần nghe nào.</div>';
+  const hhmm = (t) => new Date(t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return micLog.slice().reverse().map((x) => {
+    const tag = x.f ? `<span class="bad">Mic kẹt (${esc(x.f)})</span>` : x.e ? `<span class="bad">Lỗi ${esc(x.e)}</span>` : x.v ? '<span class="ok">Đúng</span>' : x.h ? 'Sai' : 'Không nghe thấy';
+    return `<div class="ml-row"><div><b>${esc(x.w)}</b> · ${tag} · ${hhmm(x.t)}${x.h ? ` · nghe: ${esc(x.h)}` : ''}</div><div class="ml-ev">${esc(x.ev)}</div></div>`;
+  }).join('');
+}
 function micErrorText(e) {
-  return ({ 'not-allowed': 'bạn chưa cho phép dùng mic', 'service-not-allowed': 'trình duyệt không cho dùng dịch vụ nhận giọng nói', 'audio-capture': 'không tìm thấy mic', network: 'cần kết nối Internet', unsupported: 'trình duyệt không hỗ trợ', 'language-not-supported': 'máy không hỗ trợ giọng này', 'start-failed': 'không mở được mic' })[e] || e;
+  return ({ 'not-allowed': 'bạn chưa cho phép dùng mic', 'service-not-allowed': 'trình duyệt không cho dùng dịch vụ nhận giọng nói', 'audio-capture': 'không tìm thấy mic', network: 'cần kết nối Internet', unsupported: 'trình duyệt không hỗ trợ', 'language-not-supported': 'máy không hỗ trợ giọng này', 'start-failed': 'không mở được mic', stuck: 'mic bị kẹt, máy không thu được tiếng 2 lần liền' })[e] || e;
 }
 function deviceStatus(vVi, vEn) {
   const item = (ok, text) => `<div class="status-item ${ok ? 'ok' : 'bad'}">${ok ? ICON.check : ICON.cross}<span>${text}</span></div>`;

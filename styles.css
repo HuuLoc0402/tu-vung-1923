@@ -404,3 +404,9 @@ button { cursor: pointer; }
 .fade-in { animation: fadeIn .25s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+/* Nhật ký mic (Cài đặt) */
+.mic-log { margin-top: 10px; max-height: 320px; overflow-y: auto; }
+.mic-log .ml-row { padding: 7px 0; border-top: 1px solid var(--line, rgba(127,127,127,.2)); font-size: 13px; }
+.mic-log .ml-ev { font-family: ui-monospace, Consolas, monospace; font-size: 11px; opacity: .65; word-break: break-all; margin-top: 2px; }
+.mic-log .ok { color: var(--ok); font-weight: 700; }
+.mic-log .bad { color: var(--bad); font-weight: 700; }
