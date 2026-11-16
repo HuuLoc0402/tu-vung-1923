@@ -7,17 +7,17 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.3.2';
+const APP_VERSION = '2.4.0';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
-   Cấp 3 trong file (Thông dụng, 720 từ, bài 55-126) trộn lẫn rồi chia đều 3 cấp: 240 / 240 / 240.
+   Cấp 3 trong file (Thông dụng, 720 từ, bài 55-126) trộn lẫn rồi chia đều 3 cấp: 240 / 240 / 240, đánh dấu 240A, 240B, 240C (chủ nhân chốt 2026-11-16).
    Cấp 4 trong file (Mở rộng, 659 từ, bài 127-192) trộn lẫn rồi chia đều 3 cấp: 220 / 220 / 219.
    Trộn bằng hạt giống cố định nên máy nào cũng ra cùng một bộ từ cho mỗi cấp. */
 const LEVEL_GROUPS = [
   { name: 'Nền tảng', groups: [0], parts: 1, fileRef: 'Cấp 1', desc: 'Từ chức năng và từ cốt lõi nhất (the, have, go, family...)' },
   { name: 'Đời sống', groups: [1], parts: 1, fileRef: 'Cấp 2', desc: 'Đồ vật, món ăn, thời gian, tính từ và động từ hằng ngày' },
-  { name: 'Thông dụng', groups: [2, 3], parts: 3, seed: 55126, fileRef: 'Cấp 3', desc: 'Từ hay gặp trong công việc, tin tức, giao tiếp' },
+  { name: 'Thông dụng', groups: [2, 3], parts: 3, labels: ['240A', '240B', '240C'], seed: 55126, fileRef: 'Cấp 3', desc: 'Từ hay gặp trong công việc, tin tức, giao tiếp' },
   { name: 'Mở rộng', groups: [4, 5], parts: 3, seed: 127192, fileRef: 'Cấp 4', desc: 'Từ đời thường và công việc nâng cao hơn' },
 ];
 const LEVEL_COLORS = [
@@ -51,8 +51,9 @@ for (const g of LEVEL_GROUPS) {
     const size = base + (p < extra ? 1 : 0);
     const items = mixed.slice(at, at + size); at += size;
     const n = LEVELS.length + 1;
+    const partLabel = g.parts > 1 ? (g.labels ? g.labels[p] : `Phần ${p + 1}`) : '';
     LEVELS.push({
-      n, name: g.parts > 1 ? `${g.name} · Phần ${p + 1}` : g.name, short: g.name, part: g.parts > 1 ? p + 1 : 0, desc: g.desc,
+      n, name: partLabel ? `${g.name} · ${partLabel}` : g.name, short: g.name, part: g.parts > 1 ? p + 1 : 0, partLabel, desc: g.desc,
       fileRef: `${g.fileRef}, ${g.parts > 1 ? 'trộn ' : ''}bài ${lessonFrom}-${lessonTo}`, mixed: g.parts > 1,
       color: LEVEL_COLORS[(n - 1) % LEVEL_COLORS.length], items, size, lessonFrom, lessonTo,
     });
@@ -125,6 +126,10 @@ function saveStore() {
 }
 const S = store.settings;
 if (S.mode !== 'type') S.mode = 'voice';
+const SECOND_CHOICES = [2, 2.5, 3, 4];
+if (!SECOND_CHOICES.includes(S.seconds)) S.seconds = DEFAULT_SETTINGS.seconds;
+/* số giây viết kiểu Việt: 2,5 */
+const fmtSec = (x) => String(x).replace('.', ',');
 const todayKey = () => new Date().toLocaleDateString('sv-SE');
 function streakDays() {
   const set = new Set(store.days);
@@ -533,17 +538,19 @@ const useMic = () => S.mode !== 'type' && !!getSR() && window.isSecureContext &&
 const modeKey = () => (S.mode === 'type' || !getSR() || !window.isSecureContext ? 'type' : 'voice');
 const MODE_NAME = { voice: 'Nói', type: 'Gõ phím' };
 const book = (m = modeKey()) => store.books[m];
-/* Nói: mỗi từ cùng một thời gian (mặc định 3 giây). Cụm từ: thêm 1 giây cho mỗi từ sau từ đầu
-   (vd 3 giây: Me too 4s, Don't be mad at me 7s).
+/* Nói: mỗi từ cùng một thời gian (mặc định 3 giây, chọn 2, 2,5, 3 hoặc 4 giây).
+   100 cụm và 96 câu tính theo số từ, không theo mục chọn giây (chủ nhân chốt 2026-11-16):
+   1-2 từ 3 giây, 3-4 từ 5 giây, 5-6 từ 6 giây. Câu dài hơn 6 từ (6 câu trong 96 câu, 7 và 9 từ): 7 giây.
    Gõ phím: theo độ dài, 1-2 phím (I, go) 3 giây, mỗi phím thêm cộng 0,5 giây, làm tròn lên
    (cat 4s, family 5s, beautiful 7s, international 9s). Cụm từ đếm chữ cái + dấu cách + dấu ', không đếm ? ! . , */
 const phraseWords = (en) => norm(en).split(' ').length;
-const answerSeconds = (i) => S.seconds + (isPhrase(i) ? phraseWords(WORDS[i][0]) - 1 : 0);
+const phraseSeconds = (k) => (k <= 2 ? 3 : k <= 4 ? 5 : k <= 6 ? 6 : 7);
+const answerSeconds = (i) => (isPhrase(i) ? phraseSeconds(phraseWords(WORDS[i][0])) : S.seconds);
 const typeSeconds = (i) => Math.ceil(3 + Math.max(0, (isPhrase(i) ? norm(WORDS[i][0]).length : WORDS[i][0].length) - 2) * 0.5);
 /* Thời gian làm bài tối đa của một bài = tổng thời gian trả lời của các từ trong bài
    (vd 360 từ × 3 giây = 18 phút). Chỉ tính lúc người học trả lời, không tính lúc máy đọc nghĩa, phát âm. */
 const testLimitSec = (items, voice) => items.reduce((a, i) => a + (voice ? answerSeconds(i) : typeSeconds(i)), 0);
-const fmtLimit = (sec) => (sec < 60 ? `${sec} giây` : `${Math.floor(sec / 60)} phút${sec % 60 ? ` ${sec % 60} giây` : ''}`);
+const fmtLimit = (sec) => (sec = Math.round(sec), sec < 60 ? `${sec} giây` : `${Math.floor(sec / 60)} phút${sec % 60 ? ` ${sec % 60} giây` : ''}`);
 
 /* =========================================================
    Các màn hình
@@ -566,7 +573,7 @@ SCREENS.home = () => {
     <div class="hero">
       <h2>${started ? 'Chào bạn, kiểm tra tiếp nào!' : 'Chào bạn 👋'}</h2>
       <button class="mode-chip" id="btnMode" title="Đổi chế độ ở Cài đặt">Chế độ: <b>${MODE_NAME[mk]}</b> · đổi ở Cài đặt</button>
-      <p>Bấm vào một cấp là vào kiểm tra luôn. Nhìn nghĩa tiếng Việt, ${mk === 'voice' ? `nói từ tiếng Anh trong ${S.seconds} giây` : 'gõ từ tiếng Anh, từ càng dài càng có thêm giây'}. Từ nào sai thì kiểm tra lại tới khi hết sai.</p>
+      <p>Bấm vào một cấp là vào kiểm tra luôn. Nhìn nghĩa tiếng Việt, ${mk === 'voice' ? `nói từ tiếng Anh trong ${fmtSec(S.seconds)} giây` : 'gõ từ tiếng Anh, từ càng dài càng có thêm giây'}. Từ nào sai thì kiểm tra lại tới khi hết sai.</p>
       <div class="hero-stats">
         <div class="hero-stat"><b>${doneLv}/${LEVELS.length}</b><span>phần đã hoàn thành</span></div>
         <div class="hero-stat"><b>${B.reports.length}</b><span>lần hoàn thành</span></div>
@@ -595,7 +602,7 @@ function homeCard(lv) {
   const run = B.runs[lv.n];
   const st = levelStatus(lv, run, B);
   const name = lv.phrase ? lv.name : `Cấp ${lv.n} · ${lv.short}`;
-  const meta = lv.phrase ? `${lv.size} ${lv.unit} · 1 lượt` : `${lv.part ? `Phần ${lv.part} · ` : ''}${lv.size} từ${lv.mixed ? '' : ` · bài ${lv.lessonFrom}-${lv.lessonTo}`}`;
+  const meta = lv.phrase ? `${lv.size} ${lv.unit} · 1 lượt` : `${lv.partLabel ? `${lv.partLabel} · ` : ''}${lv.size} từ${lv.mixed ? '' : ` · bài ${lv.lessonFrom}-${lv.lessonTo}`}`;
   const done = run && run.first ? pct(lv.size - run.pending.length, lv.size) : 0;
   return `<button class="level-card" data-level="${lv.n}">
     ${levelBadge(lv)}
@@ -721,7 +728,7 @@ SCREENS.test = () => {
       <div class="ring-wrap" id="tRing">
         <svg class="ring" viewBox="0 0 132 132"><circle class="ring-bg" cx="66" cy="66" r="56"/><circle class="ring-fg" id="tRingFg" cx="66" cy="66" r="56" stroke-dasharray="${ring}" stroke-dashoffset="0"/></svg>
         <div class="ring-center"><button class="mic" id="tMic" type="button" aria-label="Bấm để nói">${ICON.mic}</button></div>
-        <span class="ring-sec" id="tSec">${S.seconds}s</span>
+        <span class="ring-sec" id="tSec">${fmtSec(S.seconds)}s</span>
       </div>
       <div class="q-status" id="tStatus"></div>
       <div class="q-heard" id="tHeard"></div>
@@ -792,7 +799,8 @@ function animateRing(ms) {
   const sec = $('#tSec'); const end = performance.now() + ms; const tok = T.token;
   const tick = () => {
     if (!sec.isConnected || !T || T.token !== tok || T.phase !== 'listen') return;
-    sec.textContent = Math.max(0, Math.ceil((end - performance.now()) / 1000)) + 's';
+    const left = Math.max(0, (end - performance.now()) / 1000);
+    sec.textContent = (ms % 1000 ? fmtSec(left.toFixed(1)) : Math.ceil(left)) + 's';
     if (performance.now() < end) requestAnimationFrame(tick);
   };
   tick();
@@ -870,7 +878,7 @@ async function runWord() {
   $('#tActions').innerHTML = '';
   const secs = answerSeconds(w.i);
   const noun = T.noun;
-  $('#tSec').textContent = secs + 's';
+  $('#tSec').textContent = fmtSec(secs) + 's';
   setRing(1);
   $('#tMic').innerHTML = useMic() ? ICON.mic : ICON.micOff;
   $('#tStatus').textContent = S.readVi ? 'Đang đọc nghĩa...' : 'Chuẩn bị...';
@@ -896,7 +904,7 @@ async function runWord() {
           onStart: (ms) => {
             if (!alive()) return;
             clockStart(); clearTimeout(windowEnd); windowEnd = setTimeout(clockStop, ms);
-            $('#tStatus').textContent = `Nói ${noun} tiếng Anh! (${secs} giây)`; $('#tRing').classList.add('live'); animateRing(ms);
+            $('#tStatus').textContent = `Nói ${noun} tiếng Anh! (${fmtSec(secs)} giây)`; $('#tRing').classList.add('live'); animateRing(ms);
           },
           onSound: () => { if (alive() && !$('#tHeard').textContent) $('#tHeard').innerHTML = '<span class="muted">Đang nghe...</span>'; },
           onHeard: (h) => { if (alive()) $('#tHeard').innerHTML = `Máy nghe: <b>${esc(h)}</b>`; },
@@ -905,7 +913,7 @@ async function runWord() {
       T.cancelTap = () => { clearTimeout(windowEnd); clockStop(); resolve({ verdict: null, heard: '', error: 'cancel' }); };
       if (S.pushToTalk) {
         clockStart(); // thời gian chờ bấm mic là thời gian nghĩ, có tính
-        $('#tStatus').textContent = `Bấm nút mic rồi nói (${secs} giây)`;
+        $('#tStatus').textContent = `Bấm nút mic rồi nói (${fmtSec(secs)} giây)`;
         $('#tRing').classList.add('tap');
         $('#tMic').onclick = start;
       } else start();
@@ -1225,8 +1233,8 @@ SCREENS.settings = () => {
     ${topbar('Cài đặt')}
     <div class="card"><div class="toggles">
       <div class="toggle-row">
-        <div class="t-main"><div class="t-title">Thời gian nói mỗi từ</div><div class="t-sub">Chỉ cho chế độ Nói. Gõ phím tự tính theo độ dài từ.</div></div>
-        <div class="seg" data-set="seconds">${[3, 4, 5, 8].map((s) => `<button data-v="${s}" class="${S.seconds === s ? 'on' : ''}">${s}s</button>`).join('')}</div>
+        <div class="t-main"><div class="t-title">Thời gian nói mỗi từ</div><div class="t-sub">Chỉ cho chế độ Nói, phần 1.923 từ. Cụm từ, câu giao tiếp tính theo số từ. Gõ phím tự tính theo độ dài từ.</div></div>
+        <div class="seg" data-set="seconds">${SECOND_CHOICES.map((s) => `<button data-v="${s}" class="${S.seconds === s ? 'on' : ''}">${fmtSec(s)}s</button>`).join('')}</div>
       </div>
       <div class="toggle-row">
         <div class="t-main"><div class="t-title">Giọng tiếng Anh</div><div class="t-sub">Dùng cho cả phát âm và nhận giọng nói</div></div>
@@ -1321,12 +1329,12 @@ SCREENS.help = () => {
     <div class="card help">
       <h3 style="margin-top:0">Cách học</h3>
       <ul>
-        <li>1.923 từ chia thành <b>8 cấp</b>. Cấp 1 Nền tảng (271 từ, bài 1-27), cấp 2 Đời sống (273 từ, bài 28-54). Cấp 3, 4, 5 là Thông dụng, mỗi cấp 240 từ trộn lẫn từ bài 55-126. Cấp 6, 7, 8 là Mở rộng (220, 220, 219 từ) trộn lẫn từ bài 127-192.</li>
-        <li>Phần <b>100 cụm từ giao tiếp</b> (Well done, Take care...) nằm dưới 8 cấp: kiểm tra liền <b>1 lượt 100 cụm</b>, không chia bài. Chế độ Nói: thêm 1 giây cho mỗi từ sau từ đầu (vd Me too ${S.seconds + 1} giây, Don't be mad at me ${S.seconds + 4} giây). Chế độ Gõ phím: 1-2 phím 3 giây, mỗi phím thêm cộng 0,5 giây (đếm chữ cái, dấu cách và dấu ').</li>
-        <li>Phần <b>96 câu giao tiếp</b> (May I come in?, What do you mean?...) nằm dưới phần cụm từ: kiểm tra liền <b>1 lượt 96 câu</b>, không chia bài. Tính giờ và chấm giống phần 100 cụm (vd Thank you so much ${S.seconds + 3} giây khi nói).</li>
+        <li>1.923 từ chia thành <b>8 cấp</b>. Cấp 1 Nền tảng (271 từ, bài 1-27), cấp 2 Đời sống (273 từ, bài 28-54). Cấp 3, 4, 5 là Thông dụng, mỗi cấp 240 từ trộn lẫn từ bài 55-126, đánh dấu 240A, 240B, 240C. Cấp 6, 7, 8 là Mở rộng (220, 220, 219 từ) trộn lẫn từ bài 127-192.</li>
+        <li>Phần <b>100 cụm từ giao tiếp</b> (Well done, Take care...) nằm dưới 8 cấp: kiểm tra liền <b>1 lượt 100 cụm</b>, không chia bài. Chế độ Nói: tính theo số từ, 1-2 từ 3 giây (Me too), 3-4 từ 5 giây (Try your best), 5-6 từ 6 giây (Don't be mad at me), câu dài hơn 7 giây. Chế độ Gõ phím: 1-2 phím 3 giây, mỗi phím thêm cộng 0,5 giây (đếm chữ cái, dấu cách và dấu ').</li>
+        <li>Phần <b>96 câu giao tiếp</b> (May I come in?, What do you mean?...) nằm dưới phần cụm từ: kiểm tra liền <b>1 lượt 96 câu</b>, không chia bài. Tính giờ và chấm giống phần 100 cụm (vd May I come in? 5 giây khi nói).</li>
         <li>Có <b>2 chế độ</b>: <b>Nói</b> và <b>Gõ phím</b>, chọn ở Cài đặt, mục "Trả lời bằng". Mỗi chế độ có tiến độ, từ sai và báo cáo riêng. Đang nói dở cấp 1 mà chuyển sang gõ phím thì cấp 1 bên gõ bắt đầu từ từ đầu (nếu bên gõ chưa làm), quay lại chế độ Nói vẫn làm tiếp chỗ đang dở.</li>
-        <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Chế độ Nói: thời gian làm bài tối đa = số từ × ${S.seconds} giây (vd 240 từ = ${fmtLimit(240 * S.seconds)}). Chế độ Gõ phím: cộng thời gian gõ của từng từ. Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
-        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${S.seconds} giây</b> để nói từ tiếng Anh, từ nào cũng vậy. Quá giờ tính là sai. Máy tự chấm. Chế độ Gõ phím thì thời gian theo độ dài từ: từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây).</li>
+        <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Chế độ Nói: thời gian làm bài tối đa = số từ × ${fmtSec(S.seconds)} giây (vd 240 từ = ${fmtLimit(240 * S.seconds)}). Chế độ Gõ phím: cộng thời gian gõ của từng từ. Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
+        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${fmtSec(S.seconds)} giây</b> để nói từ tiếng Anh, từ nào cũng vậy (đổi 2, 2,5, 3 hoặc 4 giây ở Cài đặt). Quá giờ tính là sai. Máy tự chấm. Chế độ Gõ phím thì thời gian theo độ dài từ: từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây).</li>
         <li>Sau mỗi từ, máy đọc phát âm chuẩn và cho xem máy đã nghe được gì.</li>
         <li>Kiểm tra xong lần đầu có <b>Báo cáo lần 1</b>: số câu đúng, số câu sai trên tổng số câu và đạt bao nhiêu %, kèm danh sách từ sai.</li>
         <li>Bấm <b>Kiểm tra lại</b> để kiểm tra những từ còn sai. Lần nào còn sai thì kiểm tra lại tiếp, tới khi không còn từ sai là <b>hoàn thành cấp</b>. Đang kiểm tra mà tắt app thì mở lại bấm vào cấp sẽ kiểm tra tiếp chỗ đang dở.</li>

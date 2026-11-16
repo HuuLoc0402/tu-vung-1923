@@ -10,7 +10,7 @@ App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa t
 |---|---|---|---|---|---|
 | 1 | Nền tảng | Cấp 1, bài 1-27 | 271 | 13 phút 33 giây | 19 phút 39 giây |
 | 2 | Đời sống | Cấp 2, bài 28-54 | 273 | 13 phút 39 giây | 22 phút 19 giây |
-| 3, 4, 5 | Thông dụng · Phần 1-3 | Cấp 3, trộn lẫn bài 55-126 | 240 mỗi cấp | 12 phút | 20 phút 32 giây - 20 phút 52 giây |
+| 3, 4, 5 | Thông dụng · 240A, 240B, 240C | Cấp 3, trộn lẫn bài 55-126 | 240 mỗi cấp | 12 phút | 20 phút 32 giây - 20 phút 52 giây |
 | 6, 7 | Mở rộng · Phần 1-2 | Cấp 4, trộn lẫn bài 127-192 | 220 mỗi cấp | 11 phút | 19 phút 15 giây - 19 phút 24 giây |
 | 8 | Mở rộng · Phần 3 | Cấp 4, trộn lẫn bài 127-192 | 219 | 10 phút 57 giây | 19 phút 25 giây |
 
@@ -20,7 +20,7 @@ Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định r
 
 - Dữ liệu: `phrases.js`, sinh từ `tai-lieu/100 cụm từ tiếng Anh thông dụng.xlsx` trong vault bằng `tools/build_phrases.py`. Nghĩa tiếng Việt theo bản sếp duyệt (`raw/100cautienganh_moi_1.xlsx`).
 - Trong app là một phần riêng nằm dưới 8 cấp, kiểm tra liền **1 lượt 100 cụm**, không chia bài. Cụm từ được nối vào cuối `WORDS` (chỉ số 1923-2022) nên tiến độ cũ không đổi.
-- Nói: thời gian nói mỗi từ (mặc định 3 giây) + 1 giây cho mỗi từ sau từ đầu (Me too 4 giây, Don't be mad at me 7 giây). Cả lượt tối đa 8 phút 21 giây (mức 3 giây).
+- Nói (từ bản 2.4.0): tính theo số từ, không theo mục chọn giây: 1-2 từ 3 giây, 3-4 từ 5 giây, 5-6 từ 6 giây (Me too 3 giây, Try your best 5 giây, Don't be mad at me 6 giây). Cả lượt tối đa 7 phút 2 giây.
 - Gõ phím: 1-2 phím 3 giây, mỗi phím thêm cộng 0,5 giây, làm tròn lên; đếm chữ cái + dấu cách + dấu ' (As soon as possible 12 giây). Cả lượt tối đa 15 phút 1 giây.
 - Chấm khi nói: phải nghe ra đủ các từ, đúng thứ tự (nghe thừa tiếng ở đầu, cuối vẫn được). Viết tắt và viết đủ như nhau (I'm = I am), đồng âm như nhau (no/know). Không có "gần đúng".
 - Chấm khi gõ: đúng hết từng chữ cái, bắt buộc gõ dấu ', không cần gõ ? ! . , và không phân biệt hoa/thường. Me too / Same here cùng nghĩa "Tôi cũng vậy" nên gõ cụm nào cũng tính đúng.
@@ -30,14 +30,14 @@ Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định r
 - Dữ liệu: `cau96.js`, sinh từ `tai-lieu/96 câu tiếng Anh giao tiếp.xlsx` trong vault bằng `tools/build_cau96.py` (đọc bằng thư viện có sẵn của Python, không cần cài thêm). File có 3 bài (19 + 31 + 46 câu), chỉ có câu và nghĩa.
 - Trong app là phần riêng nằm dưới 100 cụm từ, kiểm tra liền **1 lượt 96 câu**, không chia bài. Chỉ hiện câu và nghĩa, không có phiên âm, không có câu ví dụ (anh Lộc chốt 2026-11-11). Câu được nối vào cuối `WORDS` (chỉ số 2023-2118), tiến độ cũ không đổi.
 - Sửa 3 chỗ chữ hiển thị so với file (anh Lộc duyệt): câu 32 thêm "?" (How old is your son?), câu 59 bỏ "?" (I don't know what it means), câu 60 viết hoa "Could". Cách chấm không đổi vì máy bỏ qua dấu câu và hoa/thường.
-- Tính giờ và chấm giống hệt phần 100 cụm. Cả lượt tối đa: Nói 10 phút 7 giây (mức 3 giây), Gõ phím 19 phút 14 giây. Câu dài nhất (I have one older brother and one younger sister): nói 11 giây, gõ 26 giây.
+- Tính giờ và chấm giống hệt phần 100 cụm. Cả lượt tối đa: Nói 8 phút 28 giây, Gõ phím 19 phút 14 giây. 6 câu dài hơn 6 từ (7 và 9 từ, vd I have one older brother and one younger sister) tạm tính 7 giây khi nói; gõ câu dài nhất 26 giây.
 - "No problem" có ở cả 100 cụm và 96 câu; hai phần tính tiến độ riêng.
 
 ## Cách kiểm tra
 
 - Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp (thứ tự từ xáo mỗi lần).
 - Hai chế độ, chọn ở Cài đặt (mục "Trả lời bằng"): **Nói** và **Gõ phím**. Mỗi chế độ có tiến độ, từ sai, báo cáo lần 1 và báo cáo tổng hợp riêng (`books.voice` và `books.type` trong localStorage). Đổi chế độ không mất tiến độ bên kia; bên chưa làm thì bắt đầu từ từ đầu.
-- Nói: mỗi từ 3 giây, chỉnh được 3/4/5/8 giây trong Cài đặt (chỉ áp dụng cho chế độ Nói). Gõ phím: theo độ dài từ, từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây, làm tròn lên (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây). Thời gian tối đa cả lượt = cộng thời gian từng từ. Gõ phải đúng hết từng chữ cái (sai 1 chữ là sai), chữ cái gõ sai được tô đỏ.
+- Nói: mỗi từ 3 giây, chỉnh được 2/2,5/3/4 giây trong Cài đặt (từ bản 2.4.0, bỏ 5 và 8 giây; máy đang chọn 5 hoặc 8 giây tự về 3 giây) (chỉ áp dụng cho chế độ Nói). Gõ phím: theo độ dài từ, từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây, làm tròn lên (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây). Thời gian tối đa cả lượt = cộng thời gian từng từ. Gõ phải đúng hết từng chữ cái (sai 1 chữ là sai), chữ cái gõ sai được tô đỏ.
 - Thời gian làm bài tối đa = tổng thời gian trả lời các từ. Đồng hồ chỉ chạy lúc trả lời, không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.
 - Kiểm tra xong lần đầu có **Báo cáo lần 1** (đúng/sai trên tổng số câu, đạt %). Bấm "Kiểm tra lại ... từ sai" để kiểm tra lại những từ còn sai, lặp tới khi hết sai là hoàn thành cấp.
 - Hoàn thành cấp: ghi một dòng vào **Báo cáo tổng hợp** của chế độ đang dùng (kết quả lần 1 + số lần kiểm tra lại), rồi xóa danh sách từ sai của cấp đó. Trong báo cáo có nút "Chế độ Nói" / "Chế độ Gõ phím" để xem từng bên.
