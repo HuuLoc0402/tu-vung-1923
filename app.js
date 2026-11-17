@@ -7,20 +7,22 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.4.1';
+const APP_VERSION = '2.4.2';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
-   Cấp 3 trong file (Thông dụng, 720 từ, bài 55-126) trộn lẫn rồi chia đều 3 cấp: 240 / 240 / 240, đánh dấu 240A, 240B, 240C (chủ nhân chốt 2026-11-16).
-   Cấp 4 trong file (Mở rộng, 659 từ, bài 127-192) trộn lẫn rồi chia đều 3 cấp: 220 / 220 / 219, đánh dấu 220A, 220B, 219.
+   Cấp 3 trong file (Thông dụng, 720 từ, bài 55-126) chia đều 3 cấp 240 / 240 / 240, đánh dấu 240A, 240B, 240C (chủ nhân chốt 2026-11-16).
+   Từ bản 2.4.2 lấy đúng thứ tự bài từ trên xuống, không trộn nữa: 240A bài 55-78, 240B bài 79-102, 240C bài 103-126 (chủ nhân chốt 2026-11-17).
+   Cấp 4 trong file (Mở rộng, 659 từ, bài 127-192) chia 3 cấp 220 / 220 / 219, đánh dấu 220A, 220B, 219.
+   Từ bản 2.4.2 cũng lấy đúng thứ tự bài: 220A bài 127-148, 220B bài 149-170, 219 bài 171-192 (bài 192 có 9 từ) (chủ nhân chốt 2026-11-17).
    Từ bản 2.4.1 cấp gọi theo số từ thay cho số 1-8: 271, 273, 240A, 240B, 240C, 220A, 220B, 219 (chủ nhân chốt 2026-11-17).
    lv.n (1-8) vẫn giữ để lưu tiến độ, chỉ đổi phần hiện ra.
-   Trộn bằng hạt giống cố định nên máy nào cũng ra cùng một bộ từ cho mỗi cấp. */
+   Không cấp nào trộn nữa; seededShuffle chỉ còn để dành. Trong lúc kiểm tra thứ tự hỏi vẫn xáo. */
 const LEVEL_GROUPS = [
   { name: 'Nền tảng', groups: [0], parts: 1, fileRef: 'Cấp 1', desc: 'Từ chức năng và từ cốt lõi nhất (the, have, go, family...)' },
   { name: 'Đời sống', groups: [1], parts: 1, fileRef: 'Cấp 2', desc: 'Đồ vật, món ăn, thời gian, tính từ và động từ hằng ngày' },
-  { name: 'Thông dụng', groups: [2, 3], parts: 3, labels: ['240A', '240B', '240C'], seed: 55126, fileRef: 'Cấp 3', desc: 'Từ hay gặp trong công việc, tin tức, giao tiếp' },
-  { name: 'Mở rộng', groups: [4, 5], parts: 3, labels: ['220A', '220B', '219'], seed: 127192, fileRef: 'Cấp 4', desc: 'Từ đời thường và công việc nâng cao hơn' },
+  { name: 'Thông dụng', groups: [2, 3], parts: 3, labels: ['240A', '240B', '240C'], inOrder: true, fileRef: 'Cấp 3', desc: 'Từ hay gặp trong công việc, tin tức, giao tiếp' },
+  { name: 'Mở rộng', groups: [4, 5], parts: 3, labels: ['220A', '220B', '219'], inOrder: true, fileRef: 'Cấp 4', desc: 'Từ đời thường và công việc nâng cao hơn' },
 ];
 const LEVEL_COLORS = [
   ['#22c1a3', '#1a9e86'], ['#3fa9f5', '#2b7fd4'], ['#7c6ff2', '#5b4fe0'], ['#a855f7', '#8b3fe0'],
@@ -46,7 +48,8 @@ for (const g of LEVEL_GROUPS) {
   WORDS.forEach((w, i) => { if (g.groups.includes(w[5])) pool.push(i); });
   const lessons = pool.map((i) => WORDS[i][6]);
   const lessonFrom = Math.min(...lessons), lessonTo = Math.max(...lessons);
-  const mixed = g.parts > 1 ? seededShuffle(pool, g.seed) : pool;
+  const shuffled = g.parts > 1 && !g.inOrder; // inOrder: chia theo đúng thứ tự bài trong file
+  const mixed = shuffled ? seededShuffle(pool, g.seed) : pool;
   const base = Math.floor(mixed.length / g.parts), extra = mixed.length % g.parts;
   let at = 0;
   for (let p = 0; p < g.parts; p++) {
@@ -55,10 +58,12 @@ for (const g of LEVEL_GROUPS) {
     const n = LEVELS.length + 1;
     const partLabel = g.parts > 1 ? (g.labels ? g.labels[p] : `Phần ${p + 1}`) : '';
     const code = g.labels ? g.labels[p] : String(size); // tên cấp theo số từ: 271, 240A...
+    const own = items.map((i) => WORDS[i][6]); // chia theo thứ tự thì mỗi cấp có khoảng bài riêng
+    const from = shuffled ? lessonFrom : Math.min(...own), to = shuffled ? lessonTo : Math.max(...own);
     LEVELS.push({
       n, name: partLabel ? `${g.name} · ${partLabel}` : g.name, short: g.name, part: g.parts > 1 ? p + 1 : 0, partLabel, code, desc: g.desc,
-      fileRef: `${g.fileRef}, ${g.parts > 1 ? 'trộn ' : ''}bài ${lessonFrom}-${lessonTo}`, mixed: g.parts > 1,
-      color: LEVEL_COLORS[(n - 1) % LEVEL_COLORS.length], items, size, lessonFrom, lessonTo,
+      fileRef: `${g.fileRef}, ${shuffled ? 'trộn ' : ''}bài ${from}-${to}`, mixed: shuffled,
+      color: LEVEL_COLORS[(n - 1) % LEVEL_COLORS.length], items, size, lessonFrom: from, lessonTo: to,
     });
   }
 }
@@ -107,9 +112,14 @@ function loadStore() {
   let data = readJSON(STORE_KEY);
   const old = data ? null : readJSON(OLD_STORE_KEY);
   if (!data || typeof data !== 'object') data = {};
+  const books = readBooks(data);
+  /* bản 2.4.2: 240A, 240B, 240C, 220A, 220B, 219 (cấp 3-8) đổi bộ từ sang theo thứ tự bài; lượt đang dở theo bộ từ trộn cũ
+     bỏ đi một lần. Báo cáo tổng hợp đã hoàn thành vẫn giữ. 271, 273 không đổi. */
+  if (!(data.split >= 2)) for (const b of [books.voice, books.type]) for (const n of [3, 4, 5, 6, 7, 8]) delete b.runs[n];
   return {
     ver: 2,
-    books: readBooks(data),
+    split: 2,
+    books,
     settings: Object.assign({}, DEFAULT_SETTINGS, (old && old.settings) || {}, data.settings || {}),
     days: Array.isArray(data.days) ? data.days : [],
   };
@@ -1332,7 +1342,7 @@ SCREENS.help = () => {
     <div class="card help">
       <h3 style="margin-top:0">Cách học</h3>
       <ul>
-        <li>1.923 từ chia thành <b>8 cấp</b>, tên cấp là số từ của cấp đó: <b>271</b> Nền tảng (bài 1-27), <b>273</b> Đời sống (bài 28-54), <b>240A, 240B, 240C</b> Thông dụng (mỗi cấp 240 từ trộn lẫn từ bài 55-126), <b>220A, 220B, 219</b> Mở rộng (trộn lẫn từ bài 127-192).</li>
+        <li>1.923 từ chia thành <b>8 cấp</b>, tên cấp là số từ của cấp đó: <b>271</b> Nền tảng (bài 1-27), <b>273</b> Đời sống (bài 28-54), <b>240A, 240B, 240C</b> Thông dụng (lấy theo thứ tự bài: 240A bài 55-78, 240B bài 79-102, 240C bài 103-126), <b>220A, 220B, 219</b> Mở rộng (lấy theo thứ tự bài: 220A bài 127-148, 220B bài 149-170, 219 bài 171-192).</li>
         <li>Phần <b>100 cụm từ giao tiếp</b> (Well done, Take care...) nằm dưới 8 cấp: kiểm tra liền <b>1 lượt 100 cụm</b>, không chia bài. Chế độ Nói: tính theo số từ, 1-2 từ 3 giây (Me too), 3-4 từ 5 giây (Try your best), 5-6 từ 6 giây (Don't be mad at me), câu dài hơn 7 giây. Chế độ Gõ phím: 1-2 phím 3 giây, mỗi phím thêm cộng 0,5 giây (đếm chữ cái, dấu cách và dấu ').</li>
         <li>Phần <b>96 câu giao tiếp</b> (May I come in?, What do you mean?...) nằm dưới phần cụm từ: kiểm tra liền <b>1 lượt 96 câu</b>, không chia bài. Tính giờ và chấm giống phần 100 cụm (vd May I come in? 5 giây khi nói).</li>
         <li>Có <b>2 chế độ</b>: <b>Nói</b> và <b>Gõ phím</b>, chọn ở Cài đặt, mục "Trả lời bằng". Mỗi chế độ có tiến độ, từ sai và báo cáo riêng. Đang nói dở cấp 271 mà chuyển sang gõ phím thì cấp 271 bên gõ bắt đầu từ từ đầu (nếu bên gõ chưa làm), quay lại chế độ Nói vẫn làm tiếp chỗ đang dở.</li>

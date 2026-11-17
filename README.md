@@ -10,11 +10,14 @@ App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa t
 |---|---|---|---|---|---|
 | 271 | Nền tảng | Cấp 1, bài 1-27 | 271 | 13 phút 33 giây | 19 phút 39 giây |
 | 273 | Đời sống | Cấp 2, bài 28-54 | 273 | 13 phút 39 giây | 22 phút 19 giây |
-| 240A, 240B, 240C | Thông dụng | Cấp 3, trộn lẫn bài 55-126 | 240 mỗi cấp | 12 phút | 20 phút 32 giây - 20 phút 52 giây |
-| 220A, 220B | Mở rộng | Cấp 4, trộn lẫn bài 127-192 | 220 mỗi cấp | 11 phút | 19 phút 15 giây - 19 phút 24 giây |
-| 219 | Mở rộng | Cấp 4, trộn lẫn bài 127-192 | 219 | 10 phút 57 giây | 19 phút 25 giây |
+| 240A | Thông dụng | Cấp 3, bài 55-78 | 240 | 12 phút | 21 phút 8 giây |
+| 240B | Thông dụng | Cấp 3, bài 79-102 | 240 | 12 phút | 20 phút 18 giây |
+| 240C | Thông dụng | Cấp 3, bài 103-126 | 240 | 12 phút | 20 phút 33 giây |
+| 220A | Mở rộng | Cấp 4, bài 127-148 | 220 | 11 phút | 20 phút 12 giây |
+| 220B | Mở rộng | Cấp 4, bài 149-170 | 220 | 11 phút | 19 phút 15 giây |
+| 219 | Mở rộng | Cấp 4, bài 171-192 (bài 192 có 9 từ) | 219 | 10 phút 57 giây | 18 phút 37 giây |
 
-Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định rồi chia đều, nên máy nào cũng ra cùng một bộ từ; 3 cấp Thông dụng gộp lại đủ 720 từ, 3 cấp Mở rộng đủ 659 từ, không trùng.
+Từ bản 2.4.2 cấp 3 và cấp 4 của file chia theo đúng thứ tự bài từ trên xuống, không trộn nữa: Thông dụng mỗi cấp 24 bài, Mở rộng mỗi cấp 22 bài. Trước đó hai phần này trộn lẫn; lượt đang dở của 240A-C, 220A, 220B, 219 theo bộ trộn cũ bị bỏ một lần, báo cáo đã xong vẫn giữ. 3 cấp Thông dụng gộp lại đủ 720 từ, 3 cấp Mở rộng đủ 659 từ, không trùng. Trong lúc kiểm tra, thứ tự hỏi từ vẫn xáo mỗi lần.
 
 ## 100 cụm từ giao tiếp (từ bản 2.2.0)
 
