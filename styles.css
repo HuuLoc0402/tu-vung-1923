@@ -365,6 +365,10 @@ button { cursor: pointer; }
 .lv-table { display: grid; gap: 12px; }
 .lv-row { display: grid; grid-template-columns: 34px 1fr 56px; gap: 12px; align-items: center; }
 .lv-row .level-badge { width: 34px; height: 34px; border-radius: 10px; font-size: 15px; }
+/* tên cấp 4 ký tự (240A, 220B): chữ nhỏ lại cho vừa huy hiệu */
+.level-badge.lb-long { font-size: 16px; letter-spacing: -.3px; }
+.level-head .level-badge.lb-long { font-size: 18px; }
+.lv-row .level-badge.lb-long { font-size: 10px; letter-spacing: -.4px; }
 .lv-row .lv-name { font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; }
 .lv-row .lv-name span { color: var(--muted); font-weight: 500; }
 .lv-row .lv-best { text-align: right; font-weight: 800; }

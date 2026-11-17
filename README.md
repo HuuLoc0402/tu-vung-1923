@@ -4,15 +4,15 @@ App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa t
 
 ## Cách chia cấp
 
-1.923 từ lấy từ file gốc `raw/2548a81c-1923-tu-tieng-anh-thong-dung_1.xlsx` (sheet "Bản học"), chia thành 8 cấp:
+1.923 từ lấy từ file gốc `raw/2548a81c-1923-tu-tieng-anh-thong-dung_1.xlsx` (sheet "Bản học"), chia thành 8 cấp. Từ bản 2.4.1 tên cấp là số từ của cấp đó (271, 273, 240A, 240B, 240C, 220A, 220B, 219) thay cho số 1-8; bên trong app vẫn giữ số 1-8 để lưu tiến độ:
 
 | Cấp trong app | Tên | Lấy từ file | Số từ | Tối đa chế độ Nói (× 3 giây) | Tối đa chế độ Gõ phím |
 |---|---|---|---|---|---|
-| 1 | Nền tảng | Cấp 1, bài 1-27 | 271 | 13 phút 33 giây | 19 phút 39 giây |
-| 2 | Đời sống | Cấp 2, bài 28-54 | 273 | 13 phút 39 giây | 22 phút 19 giây |
-| 3, 4, 5 | Thông dụng · 240A, 240B, 240C | Cấp 3, trộn lẫn bài 55-126 | 240 mỗi cấp | 12 phút | 20 phút 32 giây - 20 phút 52 giây |
-| 6, 7 | Mở rộng · Phần 1-2 | Cấp 4, trộn lẫn bài 127-192 | 220 mỗi cấp | 11 phút | 19 phút 15 giây - 19 phút 24 giây |
-| 8 | Mở rộng · Phần 3 | Cấp 4, trộn lẫn bài 127-192 | 219 | 10 phút 57 giây | 19 phút 25 giây |
+| 271 | Nền tảng | Cấp 1, bài 1-27 | 271 | 13 phút 33 giây | 19 phút 39 giây |
+| 273 | Đời sống | Cấp 2, bài 28-54 | 273 | 13 phút 39 giây | 22 phút 19 giây |
+| 240A, 240B, 240C | Thông dụng | Cấp 3, trộn lẫn bài 55-126 | 240 mỗi cấp | 12 phút | 20 phút 32 giây - 20 phút 52 giây |
+| 220A, 220B | Mở rộng | Cấp 4, trộn lẫn bài 127-192 | 220 mỗi cấp | 11 phút | 19 phút 15 giây - 19 phút 24 giây |
+| 219 | Mở rộng | Cấp 4, trộn lẫn bài 127-192 | 219 | 10 phút 57 giây | 19 phút 25 giây |
 
 Cấp 3 và cấp 4 của file được xáo bằng hạt giống cố định rồi chia đều, nên máy nào cũng ra cùng một bộ từ; 3 cấp Thông dụng gộp lại đủ 720 từ, 3 cấp Mở rộng đủ 659 từ, không trùng.
 

@@ -7,18 +7,20 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.4.0';
+const APP_VERSION = '2.4.1';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
    Cấp 3 trong file (Thông dụng, 720 từ, bài 55-126) trộn lẫn rồi chia đều 3 cấp: 240 / 240 / 240, đánh dấu 240A, 240B, 240C (chủ nhân chốt 2026-11-16).
-   Cấp 4 trong file (Mở rộng, 659 từ, bài 127-192) trộn lẫn rồi chia đều 3 cấp: 220 / 220 / 219.
+   Cấp 4 trong file (Mở rộng, 659 từ, bài 127-192) trộn lẫn rồi chia đều 3 cấp: 220 / 220 / 219, đánh dấu 220A, 220B, 219.
+   Từ bản 2.4.1 cấp gọi theo số từ thay cho số 1-8: 271, 273, 240A, 240B, 240C, 220A, 220B, 219 (chủ nhân chốt 2026-11-17).
+   lv.n (1-8) vẫn giữ để lưu tiến độ, chỉ đổi phần hiện ra.
    Trộn bằng hạt giống cố định nên máy nào cũng ra cùng một bộ từ cho mỗi cấp. */
 const LEVEL_GROUPS = [
   { name: 'Nền tảng', groups: [0], parts: 1, fileRef: 'Cấp 1', desc: 'Từ chức năng và từ cốt lõi nhất (the, have, go, family...)' },
   { name: 'Đời sống', groups: [1], parts: 1, fileRef: 'Cấp 2', desc: 'Đồ vật, món ăn, thời gian, tính từ và động từ hằng ngày' },
   { name: 'Thông dụng', groups: [2, 3], parts: 3, labels: ['240A', '240B', '240C'], seed: 55126, fileRef: 'Cấp 3', desc: 'Từ hay gặp trong công việc, tin tức, giao tiếp' },
-  { name: 'Mở rộng', groups: [4, 5], parts: 3, seed: 127192, fileRef: 'Cấp 4', desc: 'Từ đời thường và công việc nâng cao hơn' },
+  { name: 'Mở rộng', groups: [4, 5], parts: 3, labels: ['220A', '220B', '219'], seed: 127192, fileRef: 'Cấp 4', desc: 'Từ đời thường và công việc nâng cao hơn' },
 ];
 const LEVEL_COLORS = [
   ['#22c1a3', '#1a9e86'], ['#3fa9f5', '#2b7fd4'], ['#7c6ff2', '#5b4fe0'], ['#a855f7', '#8b3fe0'],
@@ -52,8 +54,9 @@ for (const g of LEVEL_GROUPS) {
     const items = mixed.slice(at, at + size); at += size;
     const n = LEVELS.length + 1;
     const partLabel = g.parts > 1 ? (g.labels ? g.labels[p] : `Phần ${p + 1}`) : '';
+    const code = g.labels ? g.labels[p] : String(size); // tên cấp theo số từ: 271, 240A...
     LEVELS.push({
-      n, name: partLabel ? `${g.name} · ${partLabel}` : g.name, short: g.name, part: g.parts > 1 ? p + 1 : 0, partLabel, desc: g.desc,
+      n, name: partLabel ? `${g.name} · ${partLabel}` : g.name, short: g.name, part: g.parts > 1 ? p + 1 : 0, partLabel, code, desc: g.desc,
       fileRef: `${g.fileRef}, ${g.parts > 1 ? 'trộn ' : ''}bài ${lessonFrom}-${lessonTo}`, mixed: g.parts > 1,
       color: LEVEL_COLORS[(n - 1) % LEVEL_COLORS.length], items, size, lessonFrom, lessonTo,
     });
@@ -83,8 +86,8 @@ LEVELS.push({
 });
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 for (const lv of LEVELS) {
-  lv.tag = lv.phrase ? lv.short : `Cấp ${lv.n}`;
-  lv.title = lv.phrase ? lv.name : `Cấp ${lv.n} · ${lv.name}`;
+  lv.tag = lv.phrase ? lv.short : `Cấp ${lv.code}`;
+  lv.title = lv.phrase ? lv.name : `Cấp ${lv.code} · ${lv.short}`;
   lv.unit = lv.unit || 'từ';
   lv.noun = lv.noun || 'từ';
 }
@@ -509,7 +512,7 @@ function topbar(title, { back = 'home', right = '' } = {}) {
 function bindBack(root, target) { const b = $('[data-back]', root); if (b) b.onclick = typeof target === 'function' ? target : () => go(target || 'home'); }
 
 function levelBadge(lv, text) {
-  return `<div class="level-badge" style="background:linear-gradient(135deg,${lv.color[0]},${lv.color[1]})">${text ?? (lv.phrase ? lv.icon : lv.n)}</div>`;
+  return `<div class="level-badge${!lv.phrase && text == null && lv.code.length > 3 ? ' lb-long' : ''}" style="background:linear-gradient(135deg,${lv.color[0]},${lv.color[1]})">${text ?? (lv.phrase ? lv.icon : lv.code)}</div>`;
 }
 
 function supportNotice() {
@@ -601,8 +604,8 @@ function homeCard(lv) {
   const B = book();
   const run = B.runs[lv.n];
   const st = levelStatus(lv, run, B);
-  const name = lv.phrase ? lv.name : `Cấp ${lv.n} · ${lv.short}`;
-  const meta = lv.phrase ? `${lv.size} ${lv.unit} · 1 lượt` : `${lv.partLabel ? `${lv.partLabel} · ` : ''}${lv.size} từ${lv.mixed ? '' : ` · bài ${lv.lessonFrom}-${lv.lessonTo}`}`;
+  const name = lv.phrase ? lv.name : `Cấp ${lv.code} · ${lv.short}`;
+  const meta = lv.phrase ? `${lv.size} ${lv.unit} · 1 lượt` : `${lv.size} từ · ${lv.mixed ? 'trộn ' : ''}bài ${lv.lessonFrom}-${lv.lessonTo}`;
   const done = run && run.first ? pct(lv.size - run.pending.length, lv.size) : 0;
   return `<button class="level-card" data-level="${lv.n}">
     ${levelBadge(lv)}
@@ -1131,8 +1134,8 @@ SCREENS.done = (id) => {
     ${topbar(lv.phrase ? 'Hoàn thành' : 'Hoàn thành cấp')}
     <div class="card sum-hero">
       <div style="font-size:46px;line-height:1">🎉</div>
-      <h2 class="sum-title" style="margin-top:8px">Hoàn thành ${lv.phrase ? `${lv.size} ${lv.noun}` : `cấp ${r.lv}`}!</h2>
-      <div class="muted small">${esc(r.name)} · ${MODE_NAME[modeKey()]} · ${fmtDate(r.t)}</div>
+      <h2 class="sum-title" style="margin-top:8px">Hoàn thành ${lv.phrase ? `${lv.size} ${lv.noun}` : `cấp ${lv.code}`}!</h2>
+      <div class="muted small">${esc(lv.title)} · ${MODE_NAME[modeKey()]} · ${fmtDate(r.t)}</div>
       <div style="margin-top:10px;font-weight:700">${r.retakes ? `Kiểm tra lại ${r.retakes} lần thì hết ${lv.unit} sai` : 'Đúng hết ngay lần 1, không phải kiểm tra lại'}</div>
       <div class="section-title" style="margin:18px 0 0">Báo cáo lần 1</div>
       ${firstStats(r.first.c, r.first.n)}
@@ -1329,10 +1332,10 @@ SCREENS.help = () => {
     <div class="card help">
       <h3 style="margin-top:0">Cách học</h3>
       <ul>
-        <li>1.923 từ chia thành <b>8 cấp</b>. Cấp 1 Nền tảng (271 từ, bài 1-27), cấp 2 Đời sống (273 từ, bài 28-54). Cấp 3, 4, 5 là Thông dụng, mỗi cấp 240 từ trộn lẫn từ bài 55-126, đánh dấu 240A, 240B, 240C. Cấp 6, 7, 8 là Mở rộng (220, 220, 219 từ) trộn lẫn từ bài 127-192.</li>
+        <li>1.923 từ chia thành <b>8 cấp</b>, tên cấp là số từ của cấp đó: <b>271</b> Nền tảng (bài 1-27), <b>273</b> Đời sống (bài 28-54), <b>240A, 240B, 240C</b> Thông dụng (mỗi cấp 240 từ trộn lẫn từ bài 55-126), <b>220A, 220B, 219</b> Mở rộng (trộn lẫn từ bài 127-192).</li>
         <li>Phần <b>100 cụm từ giao tiếp</b> (Well done, Take care...) nằm dưới 8 cấp: kiểm tra liền <b>1 lượt 100 cụm</b>, không chia bài. Chế độ Nói: tính theo số từ, 1-2 từ 3 giây (Me too), 3-4 từ 5 giây (Try your best), 5-6 từ 6 giây (Don't be mad at me), câu dài hơn 7 giây. Chế độ Gõ phím: 1-2 phím 3 giây, mỗi phím thêm cộng 0,5 giây (đếm chữ cái, dấu cách và dấu ').</li>
         <li>Phần <b>96 câu giao tiếp</b> (May I come in?, What do you mean?...) nằm dưới phần cụm từ: kiểm tra liền <b>1 lượt 96 câu</b>, không chia bài. Tính giờ và chấm giống phần 100 cụm (vd May I come in? 5 giây khi nói).</li>
-        <li>Có <b>2 chế độ</b>: <b>Nói</b> và <b>Gõ phím</b>, chọn ở Cài đặt, mục "Trả lời bằng". Mỗi chế độ có tiến độ, từ sai và báo cáo riêng. Đang nói dở cấp 1 mà chuyển sang gõ phím thì cấp 1 bên gõ bắt đầu từ từ đầu (nếu bên gõ chưa làm), quay lại chế độ Nói vẫn làm tiếp chỗ đang dở.</li>
+        <li>Có <b>2 chế độ</b>: <b>Nói</b> và <b>Gõ phím</b>, chọn ở Cài đặt, mục "Trả lời bằng". Mỗi chế độ có tiến độ, từ sai và báo cáo riêng. Đang nói dở cấp 271 mà chuyển sang gõ phím thì cấp 271 bên gõ bắt đầu từ từ đầu (nếu bên gõ chưa làm), quay lại chế độ Nói vẫn làm tiếp chỗ đang dở.</li>
         <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Chế độ Nói: thời gian làm bài tối đa = số từ × ${fmtSec(S.seconds)} giây (vd 240 từ = ${fmtLimit(240 * S.seconds)}). Chế độ Gõ phím: cộng thời gian gõ của từng từ. Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
         <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${fmtSec(S.seconds)} giây</b> để nói từ tiếng Anh, từ nào cũng vậy (đổi 2, 2,5, 3 hoặc 4 giây ở Cài đặt). Quá giờ tính là sai. Máy tự chấm. Chế độ Gõ phím thì thời gian theo độ dài từ: từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây).</li>
         <li>Sau mỗi từ, máy đọc phát âm chuẩn và cho xem máy đã nghe được gì.</li>
