@@ -4,20 +4,27 @@ App web (PWA tĩnh) luyện 1.923 từ tiếng Anh thông dụng: nhìn nghĩa t
 
 ## Cách chia cấp
 
-1.923 từ lấy từ file gốc `raw/2548a81c-1923-tu-tieng-anh-thong-dung_1.xlsx` (sheet "Bản học"), chia thành 8 cấp. Từ bản 2.4.1 tên cấp là số từ của cấp đó (271, 273, 240A, 240B, 240C, 220A, 220B, 219) thay cho số 1-8; bên trong app vẫn giữ số 1-8 để lưu tiến độ:
+1.923 từ lấy từ file gốc `raw/2548a81c-1923-tu-tieng-anh-thong-dung_1.xlsx` (sheet "Bản học"), chia thành 13 cấp (từ bản 2.4.4; trước đó 8 cấp). Tên cấp là số từ của cấp đó, không cấp nào trùng số. Bên trong app mỗi cấp có số thứ tự 1-13 để lưu tiến độ (100 cụm là 14, 96 câu là 15):
 
 | Cấp trong app | Tên | Lấy từ file | Số từ | Tối đa chế độ Nói (× 3 giây) | Tối đa chế độ Gõ phím |
 |---|---|---|---|---|---|
 | 271 | Nền tảng | Cấp 1, bài 1-27 | 271 | 13 phút 33 giây | 19 phút 39 giây |
 | 273 | Đời sống | Cấp 2, bài 28-54 | 273 | 13 phút 39 giây | 22 phút 19 giây |
-| 240A | Thông dụng | Cấp 3, bài 55-78 | 240 | 12 phút | 21 phút 8 giây |
-| 240B | Thông dụng | Cấp 3, bài 79-102 | 240 | 12 phút | 20 phút 18 giây |
-| 240C | Thông dụng | Cấp 3, bài 103-126 | 240 | 12 phút | 20 phút 33 giây |
-| 220A | Mở rộng | Cấp 4, bài 127-148 | 220 | 11 phút | 20 phút 12 giây |
-| 220B | Mở rộng | Cấp 4, bài 149-170 | 220 | 11 phút | 19 phút 15 giây |
-| 219 | Mở rộng | Cấp 4, bài 171-192 (bài 192 có 9 từ) | 219 | 10 phút 57 giây | 18 phút 37 giây |
+| 240 | Thông dụng | Cấp 3, bài 55-78 | 240 | 12 phút | 21 phút 8 giây |
+| 119 | Thông dụng | Cấp 3, bài 79-90 | 119 | 5 phút 57 giây | 10 phút 6 giây |
+| 121 | Thông dụng | Cấp 3, bài 90-102 | 121 | 6 phút 3 giây | 10 phút 12 giây |
+| 118 | Thông dụng | Cấp 3, bài 103-114 | 118 | 5 phút 54 giây | 10 phút 21 giây |
+| 122 | Thông dụng | Cấp 3, bài 114-126 | 122 | 6 phút 6 giây | 10 phút 12 giây |
+| 111 | Mở rộng | Cấp 4, bài 127-138 | 111 | 5 phút 33 giây | 10 phút 15 giây |
+| 109 | Mở rộng | Cấp 4, bài 138-148 | 109 | 5 phút 27 giây | 9 phút 57 giây |
+| 112 | Mở rộng | Cấp 4, bài 149-160 | 112 | 5 phút 36 giây | 10 phút |
+| 108 | Mở rộng | Cấp 4, bài 160-170 | 108 | 5 phút 24 giây | 9 phút 15 giây |
+| 113 | Mở rộng | Cấp 4, bài 171-182 | 113 | 5 phút 39 giây | 9 phút 28 giây |
+| 106 | Mở rộng | Cấp 4, bài 182-192 (bài 192 có 9 từ) | 106 | 5 phút 18 giây | 9 phút 9 giây |
 
 Từ bản 2.4.2 cấp 3 và cấp 4 của file chia theo đúng thứ tự bài từ trên xuống, không trộn nữa: Thông dụng mỗi cấp 24 bài, Mở rộng mỗi cấp 22 bài. Trước đó hai phần này trộn lẫn; lượt đang dở của 240A-C, 220A, 220B, 219 theo bộ trộn cũ bị bỏ một lần, báo cáo đã xong vẫn giữ. 3 cấp Thông dụng gộp lại đủ 720 từ, 3 cấp Mở rộng đủ 659 từ, không trùng. Trong lúc kiểm tra, thứ tự hỏi từ vẫn xáo mỗi lần.
+
+Từ bản 2.4.4 (anh Lộc chốt 2026-11-19) chia nhỏ thêm theo số từ anh đưa, vẫn đúng thứ tự từ trong file: 240A giữ nguyên bài, bỏ chữ A gọi là 240; 240B thành 119 + 121; 240C thành 118 + 122; 220A thành 111 + 109; 220B thành 112 + 108; 219 thành 113 + 106 (anh chọn để không trùng số với cấp khác). Mỗi bài có 10 từ nên có cấp bắt đầu hoặc kết thúc giữa bài (bài 90, 114, 138, 160, 182 chia cho hai cấp liền nhau). Cấp chia ra từ cùng một cấp cũ dùng chung màu. Lượt đang dở của 240B, 240C, 220A, 220B, 219 bị bỏ một lần; báo cáo đã hoàn thành của 5 cấp đó vẫn giữ, xem ở cuối Báo cáo tổng hợp (mục "Cấp cũ trước khi chia lại"). Tiến độ của 271, 273, 240A, 100 cụm, 96 câu giữ nguyên.
 
 ## 100 cụm từ giao tiếp (từ bản 2.2.0)
 
