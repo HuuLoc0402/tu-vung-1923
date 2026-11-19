@@ -221,6 +221,9 @@ button { cursor: pointer; }
 .toggle-row { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); }
 .toggle-row:last-child { border-bottom: 0; }
 .toggle-row .t-main { flex: 1; }
+/* hàng có nhiều nút (5 mức giây): màn hẹp thì nút xuống dòng dưới tiêu đề, chữ không bị ép */
+.toggle-row.row-wrap { flex-wrap: wrap; }
+.toggle-row.row-wrap .t-main { min-width: 210px; }
 .toggle-row .t-title { font-weight: 600; }
 .toggle-row .t-sub { font-size: 13px; color: var(--muted); }
 .switch { position: relative; width: 50px; height: 30px; flex: none; }

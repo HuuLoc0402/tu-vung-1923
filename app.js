@@ -7,7 +7,7 @@
    Lưu tiến độ trong localStorage của từng máy.
    ========================================================= */
 
-const APP_VERSION = '2.4.2';
+const APP_VERSION = '2.4.3';
 const STORE_KEY = 'tu1923:v2';
 const OLD_STORE_KEY = 'tu1923:v1'; // cách chia 6 cấp cũ: chỉ lấy lại cài đặt
 /* 8 cấp. Cấp 1, 2 giữ đúng bài như file gốc.
@@ -139,7 +139,7 @@ function saveStore() {
 }
 const S = store.settings;
 if (S.mode !== 'type') S.mode = 'voice';
-const SECOND_CHOICES = [2, 2.5, 3, 4];
+const SECOND_CHOICES = [1, 2, 2.5, 3, 4];
 if (!SECOND_CHOICES.includes(S.seconds)) S.seconds = DEFAULT_SETTINGS.seconds;
 /* số giây viết kiểu Việt: 2,5 */
 const fmtSec = (x) => String(x).replace('.', ',');
@@ -551,7 +551,7 @@ const useMic = () => S.mode !== 'type' && !!getSR() && window.isSecureContext &&
 const modeKey = () => (S.mode === 'type' || !getSR() || !window.isSecureContext ? 'type' : 'voice');
 const MODE_NAME = { voice: 'Nói', type: 'Gõ phím' };
 const book = (m = modeKey()) => store.books[m];
-/* Nói: mỗi từ cùng một thời gian (mặc định 3 giây, chọn 2, 2,5, 3 hoặc 4 giây).
+/* Nói: mỗi từ cùng một thời gian (mặc định 3 giây, chọn 1, 2, 2,5, 3 hoặc 4 giây; 1 giây thêm từ 2.4.3).
    100 cụm và 96 câu tính theo số từ, không theo mục chọn giây (chủ nhân chốt 2026-11-16):
    1-2 từ 3 giây, 3-4 từ 5 giây, 5-6 từ 6 giây. Câu dài hơn 6 từ (6 câu trong 96 câu, 7 và 9 từ): 7 giây.
    Gõ phím: theo độ dài, 1-2 phím (I, go) 3 giây, mỗi phím thêm cộng 0,5 giây, làm tròn lên
@@ -1245,7 +1245,7 @@ SCREENS.settings = () => {
   app.innerHTML = `<div>
     ${topbar('Cài đặt')}
     <div class="card"><div class="toggles">
-      <div class="toggle-row">
+      <div class="toggle-row row-wrap">
         <div class="t-main"><div class="t-title">Thời gian nói mỗi từ</div><div class="t-sub">Chỉ cho chế độ Nói, phần 1.923 từ. Cụm từ, câu giao tiếp tính theo số từ. Gõ phím tự tính theo độ dài từ.</div></div>
         <div class="seg" data-set="seconds">${SECOND_CHOICES.map((s) => `<button data-v="${s}" class="${S.seconds === s ? 'on' : ''}">${fmtSec(s)}s</button>`).join('')}</div>
       </div>
@@ -1347,7 +1347,7 @@ SCREENS.help = () => {
         <li>Phần <b>96 câu giao tiếp</b> (May I come in?, What do you mean?...) nằm dưới phần cụm từ: kiểm tra liền <b>1 lượt 96 câu</b>, không chia bài. Tính giờ và chấm giống phần 100 cụm (vd May I come in? 5 giây khi nói).</li>
         <li>Có <b>2 chế độ</b>: <b>Nói</b> và <b>Gõ phím</b>, chọn ở Cài đặt, mục "Trả lời bằng". Mỗi chế độ có tiến độ, từ sai và báo cáo riêng. Đang nói dở cấp 271 mà chuyển sang gõ phím thì cấp 271 bên gõ bắt đầu từ từ đầu (nếu bên gõ chưa làm), quay lại chế độ Nói vẫn làm tiếp chỗ đang dở.</li>
         <li>Bấm vào cấp là vào kiểm tra luôn, một lượt hết cả cấp. Chế độ Nói: thời gian làm bài tối đa = số từ × ${fmtSec(S.seconds)} giây (vd 240 từ = ${fmtLimit(240 * S.seconds)}). Chế độ Gõ phím: cộng thời gian gõ của từng từ. Đồng hồ chỉ chạy lúc bạn trả lời (chờ bấm mic, nói, gõ), không tính lúc máy đọc nghĩa và phát âm. Hết giờ thì từ chưa kịp làm tính là sai.</li>
-        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${fmtSec(S.seconds)} giây</b> để nói từ tiếng Anh, từ nào cũng vậy (đổi 2, 2,5, 3 hoặc 4 giây ở Cài đặt). Quá giờ tính là sai. Máy tự chấm. Chế độ Gõ phím thì thời gian theo độ dài từ: từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây).</li>
+        <li>Máy hiện và đọc nghĩa tiếng Việt. Bấm nút mic, bạn có <b>${fmtSec(S.seconds)} giây</b> để nói từ tiếng Anh, từ nào cũng vậy (đổi 1, 2, 2,5, 3 hoặc 4 giây ở Cài đặt). Quá giờ tính là sai. Máy tự chấm. Chế độ Gõ phím thì thời gian theo độ dài từ: từ 1-2 chữ cái (I, go) 3 giây, mỗi chữ cái thêm cộng 0,5 giây (cat 4 giây, family 5 giây, beautiful 7 giây, international 9 giây).</li>
         <li>Sau mỗi từ, máy đọc phát âm chuẩn và cho xem máy đã nghe được gì.</li>
         <li>Kiểm tra xong lần đầu có <b>Báo cáo lần 1</b>: số câu đúng, số câu sai trên tổng số câu và đạt bao nhiêu %, kèm danh sách từ sai.</li>
         <li>Bấm <b>Kiểm tra lại</b> để kiểm tra những từ còn sai. Lần nào còn sai thì kiểm tra lại tiếp, tới khi không còn từ sai là <b>hoàn thành cấp</b>. Đang kiểm tra mà tắt app thì mở lại bấm vào cấp sẽ kiểm tra tiếp chỗ đang dở.</li>
